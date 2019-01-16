@@ -13,7 +13,6 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
-
 /**
  * The VM is configured to automatically run this class, and to call the
  * functions corresponding to each mode, as described in the TimedRobot
@@ -21,6 +20,9 @@ import edu.wpi.first.wpilibj.SpeedControllerGroup;
  * creating this project, you must also update the manifest file in the resource
  * directory.
  */
+
+
+
 public class Robot extends TimedRobot {
   Spark leftDrivef = new Spark(1);
   Spark leftDriveb = new Spark(2);
@@ -35,7 +37,7 @@ public class Robot extends TimedRobot {
   private final Joystick stick1 = new Joystick(0);
   private final Timer timer = new Timer();
 
-public double getLeftstick() {
+  public double getLeftstick() {
   return stick1.getRawAxis(5);
 }
 public double getRightstick() {
@@ -43,6 +45,10 @@ public double getRightstick() {
 }
 
 
+public void modifySpeed(double newspeedModifier) {
+  this.speedModifier = newspeedModifier;
+}
+private double speedModifier = 0.7;
   /**
    * This function is run when the robot is first started up and should be
    * used for any initialization code.
