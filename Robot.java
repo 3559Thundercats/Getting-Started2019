@@ -13,6 +13,8 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
+import edu.wpi.first.wpilibj.buttons.Button;
+import edu.wpi.first.wpilibj.buttons.JoystickButton;
 /**
  * The VM is configured to automatically run this class, and to call the
  * functions corresponding to each mode, as described in the TimedRobot
@@ -33,8 +35,10 @@ public class Robot extends TimedRobot {
 
   private final DifferentialDrive 
     robotDrive = new DifferentialDrive(sc_left, sc_right);
-
   private final Joystick stick1 = new Joystick(0);
+  Button lshoulder1 = new JoystickButton(stick1, 5);
+  Button rshoulder1 = new JoystickButton(stick1, 6);
+
   private final Timer timer = new Timer();
 
   public double getLeftstick() {
@@ -52,7 +56,8 @@ public void modifySpeed(double newspeedModifier) {
   this.speedModifier = newspeedModifier;
 }
 private double speedModifier = 0.7;
-  /**
+
+/**
    * This function is run when the robot is first started up and should be
    * used for any initialization code.
    */
