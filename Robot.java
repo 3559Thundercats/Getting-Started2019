@@ -58,8 +58,8 @@ public void modifySpeed(double newspeedModifier) {
 private double speedModifier = 0.7;
 
   public Robot() {
-    //lshoulder1.whileHeld(SloGear());
-    //rshoulder1.whileHeld(HiGear());
+    //lshoulder1.whileHeld(modifySpeed(0.6));
+    //rshoulder1.whileHeld(modifySpeed(0.95));
   }
 
 /**
