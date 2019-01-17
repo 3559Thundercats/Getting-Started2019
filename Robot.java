@@ -57,6 +57,11 @@ public void modifySpeed(double newspeedModifier) {
 }
 private double speedModifier = 0.7;
 
+  public Robot() {
+    //lshoulder1.whileHeld(SloGear());
+    //rshoulder1.whileHeld(HiGear());
+  }
+
 /**
    * This function is run when the robot is first started up and should be
    * used for any initialization code.
