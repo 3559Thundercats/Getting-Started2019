@@ -31,8 +31,8 @@ public class Robot extends TimedRobot {
   Spark rightDriveb = new Spark(4);
   private SpeedControllerGroup sc_right= new SpeedControllerGroup(rightDrivef, rightDriveb);
 
-  private final DifferentialDrive robotDrive
-      = new DifferentialDrive(sc_left, sc_right);
+  private final DifferentialDrive 
+    robotDrive = new DifferentialDrive(sc_left, sc_right);
 
   private final Joystick stick1 = new Joystick(0);
   private final Timer timer = new Timer();
@@ -44,6 +44,9 @@ public double getRightstick() {
   return stick1.getRawAxis(1);
 }
 
+public void drive(double left, double right) {
+  robotDrive.tankDrive(speedModifier*left, speedModifier*right);
+}
 
 public void modifySpeed(double newspeedModifier) {
   this.speedModifier = newspeedModifier;
