@@ -32,7 +32,9 @@ public class Robot extends TimedRobot {
   Spark rightDrivef = new Spark(3);  
   Spark rightDriveb = new Spark(4);
   private SpeedControllerGroup sc_right= new SpeedControllerGroup(rightDrivef, rightDriveb);
+ 
 
+ 
   private final DifferentialDrive 
     robotDrive = new DifferentialDrive(sc_left, sc_right);
   private final Joystick stick1 = new Joystick(0);
@@ -43,24 +45,11 @@ public class Robot extends TimedRobot {
 
   public double getLeftstick() {
   return stick1.getRawAxis(5);
+
 }
 public double getRightstick() {
   return stick1.getRawAxis(1);
 }
-
-public void drive(double left, double right) {
-  robotDrive.tankDrive(speedModifier*left, speedModifier*right);
-}
-
-public void modifySpeed(double newspeedModifier) {
-  this.speedModifier = newspeedModifier;
-}
-private double speedModifier = 0.7;
-
-  public Robot() {
-    //lshoulder1.whileHeld(modifySpeed(0.6));
-    //rshoulder1.whileHeld(modifySpeed(0.95));
-  }
 
 /**
    * This function is run when the robot is first started up and should be
@@ -104,7 +93,8 @@ private double speedModifier = 0.7;
    */
   @Override
   public void teleopPeriodic() {
-    robotDrive.tankDrive(getLeftstick(), getRightstick());
+    double d = 0.75;
+    robotDrive.tankDrive(getLeftstick()*d , getRightstick()*d );
 
   }
 
