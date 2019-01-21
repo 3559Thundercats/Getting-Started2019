@@ -15,6 +15,8 @@ import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import edu.wpi.first.wpilibj.buttons.Button;
 import edu.wpi.first.wpilibj.buttons.JoystickButton;
+import com.revrobotics.*;
+import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 /**
  * The VM is configured to automatically run this class, and to call the
  * functions corresponding to each mode, as described in the TimedRobot
@@ -26,6 +28,7 @@ import edu.wpi.first.wpilibj.buttons.JoystickButton;
 
 
 public class Robot extends TimedRobot {
+  
   Spark leftDrivef = new Spark(1);
   Spark leftDriveb = new Spark(2);
   private SpeedControllerGroup sc_left = new SpeedControllerGroup(leftDrivef, leftDriveb);
@@ -33,6 +36,9 @@ public class Robot extends TimedRobot {
   Spark rightDriveb = new Spark(4);
   private SpeedControllerGroup sc_right= new SpeedControllerGroup(rightDrivef, rightDriveb);
  
+  private static final int deviceID = 1;
+  private CANSparkMax neo_motor;
+  double driveSpeed = 1;
 
  
   private final DifferentialDrive 
@@ -57,6 +63,7 @@ public double getRightstick() {
    */
   @Override
   public void robotInit() {
+    neo_motor = new CANSparkMax(deviceID, MotorType.kBrushless);
   }
 
   /**
@@ -93,9 +100,9 @@ public double getRightstick() {
    */
   @Override
   public void teleopPeriodic() {
-    double d = 0.75;
-    robotDrive.tankDrive(getLeftstick()*d , getRightstick()*d );
-
+    
+    robotDrive.tankDrive(getLeftstick()*driveSpeed , getRightstick()*driveSpeed );
+    neo_motor.set(0.75);
   }
 
   /**
