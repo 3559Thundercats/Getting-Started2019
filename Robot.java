@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import frc.Commands.SloGear;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import edu.wpi.first.wpilibj.buttons.Button;
 import edu.wpi.first.wpilibj.buttons.JoystickButton;
@@ -104,11 +105,12 @@ public double getRightstick() {
   public void teleopPeriodic() {
     robotDrive.tankDrive(getLeftstick()*driveSpeed , getRightstick()*driveSpeed );
         if(m_encoder.getPosition() >= 1000 ) {
-      neo_motor.set(0.0);
+      neo_motor.set(-0.75);
+    }else if(m_encoder.getPosition() <= 0 ){
+      neo_motor.stopMotor();
     }else {
       neo_motor.set(0.75);
     }
-
     
     SmartDashboard.putNumber("Encoder Position", m_encoder.getPosition());
     SmartDashboard.putNumber("Encoder Velocity", m_encoder.getVelocity());
