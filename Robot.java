@@ -12,6 +12,7 @@ import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import edu.wpi.first.wpilibj.buttons.Button;
 import edu.wpi.first.wpilibj.buttons.JoystickButton;
@@ -39,7 +40,7 @@ public class Robot extends TimedRobot {
   private static final int deviceID = 1;
   private CANSparkMax neo_motor;
   double driveSpeed = 1;
-
+  private CANEncoder m_encoder;
  
   private final DifferentialDrive 
     robotDrive = new DifferentialDrive(sc_left, sc_right);
@@ -64,6 +65,7 @@ public double getRightstick() {
   @Override
   public void robotInit() {
     neo_motor = new CANSparkMax(deviceID, MotorType.kBrushless);
+    m_encoder = neo_motor.getEncoder();
   }
 
   /**
@@ -100,9 +102,16 @@ public double getRightstick() {
    */
   @Override
   public void teleopPeriodic() {
-    
     robotDrive.tankDrive(getLeftstick()*driveSpeed , getRightstick()*driveSpeed );
-    neo_motor.set(0.75);
+        if(m_encoder.getPosition() >= 1000 ) {
+      neo_motor.set(0.0);
+    }else {
+      neo_motor.set(0.75);
+    }
+
+    
+    SmartDashboard.putNumber("Encoder Position", m_encoder.getPosition());
+    SmartDashboard.putNumber("Encoder Velocity", m_encoder.getVelocity());
   }
 
   /**
