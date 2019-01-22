@@ -57,7 +57,7 @@ public double getRightstick() {
 
 public Robot() {
 
-  lshoulder1.whenPressed(new SloGear());
+  lshoulder1.whileHeld(new SloGear());
 
 }
 /**
