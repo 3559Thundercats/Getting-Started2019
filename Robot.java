@@ -7,8 +7,6 @@
 
 package frc.robot;
 
-import frc.Commands.HiGear;
-import frc.Commands.SloGear;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.TimedRobot;
@@ -47,8 +45,8 @@ public class Robot extends TimedRobot {
   private final DifferentialDrive 
     robotDrive = new DifferentialDrive(sc_left, sc_right);
   private final Joystick stick1 = new Joystick(0);
-  Button lshoulder1 = new JoystickButton(stick1, 5);
-  Button rshoulder1 = new JoystickButton(stick1, 6);
+  //Button lshoulder1 = new JoystickButton(stick1, 5);
+  //Button rshoulder1 = new JoystickButton(stick1, 6);
 
   private final Timer timer = new Timer();
 
@@ -60,13 +58,6 @@ public double getRightstick() {
   return stick1.getRawAxis(1);
 }
 
-
-public Robot() {
-
-  lshoulder1.whileHeld(new SloGear());
-  rshoulder1.whileHeld(new HiGear());
-
-}
 /**
    * This function is run when the robot is first started up and should be
    * used for any initialization code.
@@ -113,9 +104,7 @@ public Robot() {
   public void teleopPeriodic() {
     robotDrive.tankDrive(getLeftstick()*driveSpeed , getRightstick()*driveSpeed );
         if(m_encoder.getPosition() >= 1000 ) {
-      neo_motor.set(-0.75);
-    }else if(m_encoder.getPosition() <= 0 ){
-      neo_motor.stopMotor();
+      neo_motor.set(0.90);
     }else {
       neo_motor.set(0.75);
     }
