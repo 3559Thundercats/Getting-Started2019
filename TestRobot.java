@@ -66,6 +66,8 @@ public double getRightstick() {
   public void robotInit() {
     neo_motor = new CANSparkMax(deviceID, MotorType.kBrushless);
     m_encoder = neo_motor.getEncoder();
+
+    //neo_motor.setRampRate(0);
   }
 
   /**
@@ -82,27 +84,29 @@ public double getRightstick() {
    */
   @Override
   public void autonomousPeriodic() {
-    // approx. the number of revolutions to travel 1 foot
-    double stopPoint = 10.667;
-    // position of robot
+    /*
+    //drive forward one foot*
+     for (timer.get() ; timer.get() < 5 ; timer.get()) { 
+    //position of robot
     double John = m_encoder.getPosition();
-   
-    timer.start();
-    // drive forward one foot*  
-    while(true) {
+    //approx. the number of revolutions to travel 1 foot
+    double stopPoint = 10.667;
       if(John >= stopPoint) {
-        neo_motor.set(0);
-        //neo_motor.stopMotor();
+        //neo_motor.set(0);
+        neo_motor.stopMotor();
       }else {
         neo_motor.set(0.75);
       }
-
-      if(timer.get() == 5) {
+      if (timer.get() == 5) {
         break;
       }
     }
+    neo_motor.stopMotor();
+    */
+    
     // Drive for 2 seconds
-    if (timer.get() < 2.0) {
+   //neo_motor.set(1);
+    if (timer.get() < 8.0) {
       robotDrive.arcadeDrive(0.5, 0.0); // drive forwards half speed
     } else {
       robotDrive.stopMotor(); // stop robot
@@ -114,6 +118,7 @@ public double getRightstick() {
    */
   @Override
   public void teleopInit() {
+    timer.start();
   }
 
   /**
@@ -122,15 +127,33 @@ public double getRightstick() {
   @Override
   public void teleopPeriodic() {
     robotDrive.tankDrive(getLeftstick()*driveSpeed , getRightstick()*driveSpeed );
-        if(m_encoder.getPosition() >= 1000 ) {
+        /*if(m_encoder.getPosition() >= 1000 ) {
       neo_motor.set(0.90);
     }else {
       neo_motor.set(0.75);
+    }*/
+    
+    //drive forward one foot*
+     for (timer.get() ; timer.get() < 5 ; timer.get()) { 
+    //position of robot
+    double John = m_encoder.getPosition();
+    //approx. the number of revolutions to travel 1 foot
+    double stopPoint = 10.667;
+      if(John >= stopPoint) {
+        //neo_motor.set(0);
+        neo_motor.stopMotor();
+      }else {
+        neo_motor.set(0.75);
+      }
+      if (timer.get() == 5) {
+        break;
+      }
     }
+    neo_motor.stopMotor();
     
     SmartDashboard.putNumber("Encoder Position", m_encoder.getPosition());
     SmartDashboard.putNumber("Encoder Velocity", m_encoder.getVelocity());
-    SmartDashboard.putNumber("Timer Count", Timer.getFPGATimestamp());
+    //SmartDashboard.putNumber("Timer Count", timer.getFPGATimestamp());
   }
 
   /**
