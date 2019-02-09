@@ -1,148 +1,118 @@
-/*----------------------------------------------------------------------------*/
-/* Copyright (c) 2017-2018 FIRST. All Rights Reserved.                        */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
-/*----------------------------------------------------------------------------*/
-
 package frc.robot;
 
+import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Spark;
+import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import com.kauailabs.*;
-import com.kauailabs.navx.frc.AHRS;
-import edu.wpi.first.wpilibj.SPI;
-
+import edu.wpi.first.wpilibj.SpeedControllerGroup;
+import edu.wpi.first.wpilibj.buttons.Button;
+import edu.wpi.first.wpilibj.buttons.JoystickButton;
+import com.revrobotics.*;
+import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.buttons.Button;
+import edu.wpi.first.wpilibj.buttons.JoystickButton;
+import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.SpeedControllerGroup;
+import edu.wpi.first.wpilibj.Timer;
 /**
  * The VM is configured to automatically run this class, and to call the
+ * functions corresponding to each mode, as described in the TimedRobot
  * functions corresponding to each mode, as described in the IterativeRobot
  * documentation. If you change the name of this class or the package after
+ * creating this project, you must also update the manifest file in the resource
+ * directory.
  * creating this project, you must also update the build.gradle file in the
  * project.
  */
 public class Robot extends IterativeRobot {
+
   private static final String kDefaultAuto = "Default";
   private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
+  private double driveSpeed = 1;
 
-//navx Gyro necessities 
-public Robot() {
+  //right side controllers
+  private int canDeviceID1 = 10;
+  private int canDeviceID2 = 11;
+  private int canDeviceID3 = 12;
 
-  try{
-    ahrs = new AHRS(SPI.Port.kMXP); 
-  }catch (RuntimeException ex) {
-    DriverStation.reportError("Error instantiating navX-MXP:  " + ex.getMessage(), true);
+public class Robot extends TimedRobot {
+
+  Spark leftDrivef = new Spark(1);
+  Spark leftDriveb = new Spark(2);
+  private SpeedControllerGroup sc_left = new SpeedControllerGroup(leftDrivef, leftDriveb);
+  Spark rightDrivef = new Spark(3);  
+  Spark rightDriveb = new Spark(4);
+  private SpeedControllerGroup sc_right= new SpeedControllerGroup(rightDrivef, rightDriveb);
+
+  private static final int deviceID = 1;
+  private CANSparkMax neo_motor;
+  double driveSpeed = 1;
+  private CANEncoder m_encoder;
+
+  private final DifferentialDrive 
+    robotDrive = new DifferentialDrive(sc_left, sc_right);
+  //left side controllers
+  private int canDeviceID4 = 13;
+  private int canDeviceID5 = 14;
+  private int canDeviceID6 = 15;
+
+  private CANSparkMax motor1 = new CANSparkMax( canDeviceID1, MotorType.kBrushless);
+  private CANSparkMax motor2 = new CANSparkMax( canDeviceID2, MotorType.kBrushless);
+  private CANSparkMax motor3 = new CANSparkMax( canDeviceID3, MotorType.kBrushless);
+  private SpeedControllerGroup spdc_right = new SpeedControllerGroup(motor1, motor2, motor3);
+
+  private CANSparkMax motor4 = new CANSparkMax( canDeviceID4, MotorType.kBrushless);
+  private CANSparkMax motor5 = new CANSparkMax( canDeviceID5, MotorType.kBrushless);
+  private CANSparkMax motor6 = new CANSparkMax( canDeviceID6, MotorType.kBrushless);
+  private SpeedControllerGroup spdc_left = new SpeedControllerGroup(motor4, motor5, motor6);
+
+
+  private final DifferentialDrive
+  robotDrive = new DifferentialDrive(spdc_left, spdc_right);
+  private final Joystick stick1 = new Joystick(0);
+  //Button lshoulder1 = new JoystickButton(stick1, 5);
+  //Button rshoulder1 = new JoystickButton(stick1, 6);
+
+  private final Timer timer = new Timer();
+
+  public double getLeftstick() {
+  return stick1.getRawAxis(5);
+    return stick1.getRawAxis(5);
+    }
+
+  public double getRightstick() {
+    return stick1.getRawAxis(1);
   }
+
+
 }
-// Displays Gyro input info on SmartDashboard for viewing
-public void operatorControl() {
-  while (isOperatorControl() && isEnabled()) {
-      
-      Timer.delay(0.020);		/* wait for one motor update time period (50Hz)     */
-      
-      boolean zero_yaw_pressed = stick1.getTrigger();
-      if ( zero_yaw_pressed ) {
-          ahrs.zeroYaw();
-      }
-
-      /* Display 6-axis Processed Angle Data                                      */
-      SmartDashboard.putBoolean(  "IMU_Connected",        ahrs.isConnected());
-      SmartDashboard.putBoolean(  "IMU_IsCalibrating",    ahrs.isCalibrating());
-      SmartDashboard.putNumber(   "IMU_Yaw",              ahrs.getYaw());
-      SmartDashboard.putNumber(   "IMU_Pitch",            ahrs.getPitch());
-      SmartDashboard.putNumber(   "IMU_Roll",             ahrs.getRoll());
-      
-      /* Display tilt-corrected, Magnetometer-based heading (requires             */
-      /* magnetometer calibration to be useful)                                   */
-      
-      SmartDashboard.putNumber(   "IMU_CompassHeading",   ahrs.getCompassHeading());
-      
-      /* Display 9-axis Heading (requires magnetometer calibration to be useful)  */
-      SmartDashboard.putNumber(   "IMU_FusedHeading",     ahrs.getFusedHeading());
-
-      /* These functions are compatible w/the WPI Gyro Class, providing a simple  */
-      /* path for upgrading from the Kit-of-Parts gyro to the navx-MXP            */
-      
-      SmartDashboard.putNumber(   "IMU_TotalYaw",         ahrs.getAngle());
-      SmartDashboard.putNumber(   "IMU_YawRateDPS",       ahrs.getRate());
-
-      /* Display Processed Acceleration Data (Linear Acceleration, Motion Detect) */
-      
-      SmartDashboard.putNumber(   "IMU_Accel_X",          ahrs.getWorldLinearAccelX());
-      SmartDashboard.putNumber(   "IMU_Accel_Y",          ahrs.getWorldLinearAccelY());
-      SmartDashboard.putBoolean(  "IMU_IsMoving",         ahrs.isMoving());
-      SmartDashboard.putBoolean(  "IMU_IsRotating",       ahrs.isRotating());
-
-      /* Display estimates of velocity/displacement.  Note that these values are  */
-      /* not expected to be accurate enough for estimating robot position on a    */
-      /* FIRST FRC Robotics Field, due to accelerometer noise and the compounding */
-      /* of these errors due to single (velocity) integration and especially      */
-      /* double (displacement) integration.                                       */
-      
-      SmartDashboard.putNumber(   "Velocity_X",           ahrs.getVelocityX());
-      SmartDashboard.putNumber(   "Velocity_Y",           ahrs.getVelocityY());
-      SmartDashboard.putNumber(   "Displacement_X",       ahrs.getDisplacementX());
-      SmartDashboard.putNumber(   "Displacement_Y",       ahrs.getDisplacementY());
-      
-      /* Display Raw Gyro/Accelerometer/Magnetometer Values                       */
-      /* NOTE:  These values are not normally necessary, but are made available   */
-      /* for advanced users.  Before using this data, please consider whether     */
-      /* the processed data (see above) will suit your needs.                     */
-      
-      SmartDashboard.putNumber(   "RawGyro_X",            ahrs.getRawGyroX());
-      SmartDashboard.putNumber(   "RawGyro_Y",            ahrs.getRawGyroY());
-      SmartDashboard.putNumber(   "RawGyro_Z",            ahrs.getRawGyroZ());
-      SmartDashboard.putNumber(   "RawAccel_X",           ahrs.getRawAccelX());
-      SmartDashboard.putNumber(   "RawAccel_Y",           ahrs.getRawAccelY());
-      SmartDashboard.putNumber(   "RawAccel_Z",           ahrs.getRawAccelZ());
-      SmartDashboard.putNumber(   "RawMag_X",             ahrs.getRawMagX());
-      SmartDashboard.putNumber(   "RawMag_Y",             ahrs.getRawMagY());
-      SmartDashboard.putNumber(   "RawMag_Z",             ahrs.getRawMagZ());
-      SmartDashboard.putNumber(   "IMU_Temp_C",           ahrs.getTempC());
-      
-      /* Omnimount Yaw Axis Information                                           */
-      /* For more info, see http://navx-mxp.kauailabs.com/installation/omnimount  */
-      AHRS.BoardYawAxis yaw_axis = ahrs.getBoardYawAxis();
-      SmartDashboard.putString(   "YawAxisDirection",     yaw_axis.up ? "Up" : "Down" );
-      SmartDashboard.putNumber(   "YawAxis",              yaw_axis.board_axis.getValue() );
-      
-      /* Sensor Board Information                                                 */
-      SmartDashboard.putString(   "FirmwareVersion",      ahrs.getFirmwareVersion());
-      
-      /* Quaternion Data                                                          */
-      /* Quaternions are fascinating, and are the most compact representation of  */
-      /* orientation data.  All of the Yaw, Pitch and Roll Values can be derived  */
-      /* from the Quaternions.  If interested in motion processing, knowledge of  */
-      /* Quaternions is highly recommended.                                       */
-      SmartDashboard.putNumber(   "QuaternionW",          ahrs.getQuaternionW());
-      SmartDashboard.putNumber(   "QuaternionX",          ahrs.getQuaternionX());
-      SmartDashboard.putNumber(   "QuaternionY",          ahrs.getQuaternionY());
-      SmartDashboard.putNumber(   "QuaternionZ",          ahrs.getQuaternionZ());
-      
-      /* Connectivity Debugging Support                                           */
-      SmartDashboard.putNumber(   "IMU_Byte_Count",       ahrs.getByteCount());
-      SmartDashboard.putNumber(   "IMU_Update_Count",     ahrs.getUpdateCount());
-  }
+public double getRightstick() {
+  return stick1.getRawAxis(1);
 }
 
 /**
- * This function is run when the robot is first started up and should be
- * used for any initialization code.
- */
-
-   /* This function is run when the robot is first started up and should be
+  /**
+   * This function is run when the robot is first started up and should be
    * used for any initialization code.
    */
   @Override
   public void robotInit() {
+    neo_motor = new CANSparkMax(deviceID, MotorType.kBrushless);
+    m_encoder = neo_motor.getEncoder();
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
   }
 
   /**
+   * This function is run once each time the robot enters autonomous mode.
    * This function is called every robot packet, no matter the mode. Use
    * this for items like diagnostics that you want ran during disabled,
    * autonomous, teleoperated and test.
@@ -151,10 +121,14 @@ public void operatorControl() {
    * LiveWindow and SmartDashboard integrated updating.
    */
   @Override
+  public void autonomousInit() {
+    timer.reset();
+    timer.start();
   public void robotPeriodic() {
   }
 
   /**
+   * This function is called periodically during autonomous.
    * This autonomous (along with the chooser code above) shows how to select
    * between different autonomous modes using the dashboard. The sendable
    * chooser code works with the Java SmartDashboard. If you prefer the
@@ -166,7 +140,17 @@ public void operatorControl() {
    * SendableChooser make sure to add them to the chooser code above as well.
    */
   @Override
+  public void autonomousPeriodic() {
+    // Drive for 2 seconds
+    if (timer.get() < 2.0) {
+      robotDrive.arcadeDrive(0.5, 0.0); // drive forwards half speed
+    } else {
+      robotDrive.stopMotor(); // stop robot
+    }
   public void autonomousInit() {
+    timer.start();
+    timer.reset();
+
     m_autoSelected = m_chooser.getSelected();
     // autoSelected = SmartDashboard.getString("Auto Selector",
     // defaultAuto);
@@ -174,9 +158,11 @@ public void operatorControl() {
   }
 
   /**
+   * This function is called once each time the robot enters teleoperated mode.
    * This function is called periodically during autonomous.
    */
   @Override
+  public void teleopInit() {
   public void autonomousPeriodic() {
     switch (m_autoSelected) {
       case kCustomAuto:
@@ -190,16 +176,54 @@ public void operatorControl() {
   }
 
   /**
+   * This function is called periodically during teleoperated mode.
    * This function is called periodically during operator control.
    */
   @Override
   public void teleopPeriodic() {
+    robotDrive.tankDrive(getLeftstick()*driveSpeed , getRightstick()*driveSpeed );
+        if(m_encoder.getPosition() >= 1000 ) {
+      neo_motor.set(0.90);
+    }else {
+      neo_motor.set(0.75);
+    }
+
+    SmartDashboard.putNumber("Encoder Position", m_encoder.getPosition());
+    SmartDashboard.putNumber("Encoder Velocity", m_encoder.getVelocity());
   }
 
+    //robotDrive.tankDrive(getOptimalDriveSpeed(getLeftstick()*driveSpeed) , getOptimalDriveSpeed(getRightstick()*driveSpeed), false);
+    robotDrive.tankDrive(getOptimalDriveSpeed(getLeftstick()*driveSpeed) , getOptimalDriveSpeed(getRightstick()*driveSpeed), false);
+    /*motor1.set(.7);
+      motor2.set(.7);
+      motor3.set(.7);
+      motor4.set(-.7);
+      motor5.set(-.7);
+      motor6.set(-.7);*/
+  }
   /**
    * This function is called periodically during test mode.
    */
   @Override
   public void testPeriodic() {
   }
+  /*public double getOptimalDriveSpeed (double x) {
+     return (1) / (1-(x-0.3)) - 1;  
+  }*/
+
+  public double getOptimalDriveSpeed (double x) {
+    if(x>0){
+    return ((-43.4967)*(Math.pow(x,1.7))+(40.485)*(Math.pow(x,1.8))+(4.01411)*(x));
+    }else{
+      x=-x;
+      return (-1)*((-43.4967)*(Math.pow(x,1.7))+(40.485)*(Math.pow(x,1.8))+(4.01411)*(x));
+    }
+    //return (((-43.4967)*(x)^1.7)+((40.485)*(x)^1.8)+((4.01411)*x));
+    //return (x*x) + (-0.7*x) + (0.3);
+    /*when x>.1 y=x^3-bx^2+b
+      when -.1<=x<=.1 y=0
+      when x<.1 y=x^3+bx^2-b*/
+  }
+
+
 }
