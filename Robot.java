@@ -6,18 +6,26 @@
 /*----------------------------------------------------------------------------*/
 
 package frc.robot;
-import edu.wpi.first.wpilibj.TimedRobot;
+
+import edu.wpi.first.vision.*;
+import edu.wpi.first.wpilibj.CameraServer;
+import edu.wpi.first.wpilibj.Compressor;
+import edu.wpi.first.wpilibj.DoubleSolenoid;
+import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.DriverStation;
 import com.revrobotics.*;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.buttons.Button;
 import edu.wpi.first.wpilibj.buttons.JoystickButton;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
+import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -26,19 +34,22 @@ import edu.wpi.first.wpilibj.Timer;
  * creating this project, you must also update the build.gradle file in the
  * project.
  */
-public class Robot extends TimedRobot {
+public class Robot extends TimedRobot {  
+
   
-  private double driveSpeed = 1;
+  public static OI m_oi;
+
+  public double number = 1;
 
   //right side controllers
-  private int canDeviceID1 = 10;
-  private int canDeviceID2 = 11;
-  private int canDeviceID3 = 12;
+  private int canDeviceID1 = 16;
+  private int canDeviceID2 = 17;
+  private int canDeviceID3 = 18;
 
   //left side controllers
-  private int canDeviceID4 = 13;
-  private int canDeviceID5 = 14;
-  private int canDeviceID6 = 15;
+  private int canDeviceID4 = 19;
+  private int canDeviceID5 = 20;
+  private int canDeviceID6 = 21;
 
   private CANSparkMax motor1 = new CANSparkMax( canDeviceID1, MotorType.kBrushless);
   private CANSparkMax motor2 = new CANSparkMax( canDeviceID2, MotorType.kBrushless);
@@ -50,18 +61,43 @@ public class Robot extends TimedRobot {
   private CANSparkMax motor6 = new CANSparkMax( canDeviceID6, MotorType.kBrushless);
   private SpeedControllerGroup spdc_left = new SpeedControllerGroup(motor4, motor5, motor6);
 
+  Compressor c = new Compressor(0);
+  
+  Solenoid clawA = new Solenoid(1);
+  Solenoid clawB=new Solenoid(2);
+
   private final DifferentialDrive
   robotDrive = new DifferentialDrive(spdc_left, spdc_right);
+ 
   private final Joystick stick1 = new Joystick(0);
 
-  private final Timer timer = new Timer();
+  Double axisLx = 0.0;
+  Double axisLy = 0.0;
+  Double axisRx = 0.0;
+  Double axisRy = 0.0;
+
+
+  CameraServer cServer = CameraServer.getInstance();
+  CameraServer cServer2 = CameraServer.getInstance();
+  //CameraServer cServer3 = CameraServer.getInstance();
+  //CameraServer cServer4 = CameraServer.getInstance();
+
+  //private final Timer timer = new Timer();
+  
+
+ public void refreshJoystickAxes(){
+     axisLx = stick1.getRawAxis(0);
+     axisLy = stick1.getRawAxis(1);
+     axisRx = stick1.getRawAxis(4);
+     axisRy = stick1.getRawAxis(5);
+ }
 
   public double getLeftstick() {
-    return stick1.getRawAxis(5);
+    return stick1.getRawAxis(1);
     }
   
   public double getRightstick() {
-    return stick1.getRawAxis(1);
+    return stick1.getRawAxis(5);
   }
   /**
    * This function is run when the robot is first started up and should be
@@ -69,7 +105,13 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    
+    //m_oi = new OI();
+     cServer.startAutomaticCapture(0);
+     cServer2.startAutomaticCapture(1);
+    // cServer3.startAutomaticCapture(2);
+    // cServer4.startAutomaticCapture(3);
+    c.setClosedLoopControl(false);
+
   }
 
   /**
@@ -114,7 +156,46 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void teleopPeriodic() {
-    robotDrive.tankDrive(getOptimalDriveSpeed(getLeftstick()*driveSpeed) , getOptimalDriveSpeed(getRightstick()*driveSpeed), false);
+   
+      refreshJoystickAxes();
+      robotDrive.tankDrive(-getOptimalDriveSpeed(getLeftstick()),-getOptimalDriveSpeed (getRightstick()),false);
+      //robotDrive.curvatureDrive( -axisLy, axisLx, true);
+      /*
+      if( Math.abs(axis1x) > .07 || Math.abs(axis1y) >.07 ){
+        robotDrive.arcadeDrive(-getLeftstick(),stick1.getRawAxis(0));
+      }
+      if( Math.abs(axis2x) > .07 || Math.abs(axis2y) >.07 ){
+        robotDrive.arcadeDrive(-getRightstick()*.4,stick1.getRawAxis(4)*.4);
+      }
+      */
+      
+     
+      if( stick1.getRawButton(1) ){
+        //button A green
+        clawA.set(true);
+        clawB.set(false);
+     }
+      if(  stick1.getRawButton(2) ) {
+        //button B red
+        clawA.set(false);
+        clawB.set(true);
+      }
+
+      //D-pad POV values measured in degrees
+      SmartDashboard.putNumber( "POV", stick1.getPOV() );
+      if( stick1.getPOV() == 0 ){
+        robotDrive.tankDrive(.2,.2,false);
+      }
+      if( stick1.getPOV() == 180 ){
+        robotDrive.tankDrive(-.2,-.2,false);
+      }
+      if( stick1.getPOV() == 90 ){
+        robotDrive.tankDrive(.1,-.1,false);
+      }
+      if( stick1.getPOV() == 270 ){
+        robotDrive.tankDrive(-.1,.1,false);
+      }
+    
   }
 
   /**
@@ -124,34 +205,29 @@ public class Robot extends TimedRobot {
   public void testPeriodic() {
   }
 
-  public void myDrive(Double leftInput, Double rightInput) {
-   
-    motor1.set(leftInput);
-    motor2.set(leftInput);
-    motor3.set(leftInput);
 
-    motor4.set(rightInput);
-    motor5.set(rightInput);
-    motor6.set(rightInput);
   
-  }
+  public double getOptimalDriveSpeed(Double joystickValue) { 
+    double x = joystickValue;
 
-  // x = Joystick value
-  public double getOptimalDriveSpeed(Double x) { 
-    //Jay
-    /*if(x>0){
-      return (1/(1-(x-0.03))/25) + 0.25;
-      }else{
-        x=-x;
-        return (-1)*(1/(1-(x-0.03))/25) + 0.25;
-      }*/
-      
+    SmartDashboard.putNumber( "stickValue", x );
+    if( Math.abs(x) < .07 ){
+      return 0;
+    }
+    
+
+
+    return .8 * x;
+
+    /*
     //J@c0b
+
     if(x>0){
       return ((-43.4967)*(Math.pow(x,1.7))+(40.485)*(Math.pow(x,1.8))+(4.01411)*(x));
       }else{
         x=-x;
         return (-1)*((-43.4967)*(Math.pow(x,1.7))+(40.485)*(Math.pow(x,1.8))+(4.01411)*(x));
       }
+    */
   }
 }
