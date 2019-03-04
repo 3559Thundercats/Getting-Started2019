@@ -40,26 +40,28 @@ public class Robot extends TimedRobot {
   public static OI m_oi;
 
   public double number = 1;
+  public double loopCounter = 0;
+  public double elevatorSpeed = .3;
 
   //right side controllers
-  private int canDeviceID1 = 16;
-  private int canDeviceID2 = 17;
-  private int canDeviceID3 = 18;
+  private int canDeviceID1 = 10;
+  private int canDeviceID2 = 11;
+  private int canDeviceID3 = 12;
 
   //left side controllers
-  private int canDeviceID4 = 19;
-  private int canDeviceID5 = 20;
-  private int canDeviceID6 = 21;
+  private int canDeviceID4 = 13;
+  private int canDeviceID5 = 14;
+  private int canDeviceID6 = 15;
 
   private CANSparkMax motor1 = new CANSparkMax( canDeviceID1, MotorType.kBrushless);
   private CANSparkMax motor2 = new CANSparkMax( canDeviceID2, MotorType.kBrushless);
   private CANSparkMax motor3 = new CANSparkMax( canDeviceID3, MotorType.kBrushless);
-  private SpeedControllerGroup spdc_right = new SpeedControllerGroup(motor1, motor2, motor3);
+  private SpeedControllerGroup spdc_right = new SpeedControllerGroup(motor1, motor2);
 
   private CANSparkMax motor4 = new CANSparkMax( canDeviceID4, MotorType.kBrushless);
   private CANSparkMax motor5 = new CANSparkMax( canDeviceID5, MotorType.kBrushless);
   private CANSparkMax motor6 = new CANSparkMax( canDeviceID6, MotorType.kBrushless);
-  private SpeedControllerGroup spdc_left = new SpeedControllerGroup(motor4, motor5, motor6);
+  private SpeedControllerGroup spdc_left = new SpeedControllerGroup(motor4, motor5);
 
   Compressor c = new Compressor(0);
   
@@ -110,7 +112,7 @@ public class Robot extends TimedRobot {
      cServer2.startAutomaticCapture(1);
     // cServer3.startAutomaticCapture(2);
     // cServer4.startAutomaticCapture(3);
-    c.setClosedLoopControl(false);
+    c.setClosedLoopControl(true);
 
   }
 
@@ -157,8 +159,16 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
    
+      loopCounter++;
+
       refreshJoystickAxes();
+/*
+    double elevatorh = 0;
+      if() {
+
+      }else {
       robotDrive.tankDrive(-getOptimalDriveSpeed(getLeftstick()),-getOptimalDriveSpeed (getRightstick()),false);
+      }*/
       //robotDrive.curvatureDrive( -axisLy, axisLx, true);
       /*
       if( Math.abs(axis1x) > .07 || Math.abs(axis1y) >.07 ){
@@ -169,6 +179,15 @@ public class Robot extends TimedRobot {
       }
       */
       
+      //elevator control
+      elevatorSpeed = elevatorSpeed * 1.02;
+      if( stick1.getRawButton(4)) {
+        motor3.set(elevatorSpeed);
+      }else if( stick1.getRawButton(3)) {
+        motor3.set(-elevatorSpeed);
+      }else {
+        motor3.set(-0.02);
+      }
      
       if( stick1.getRawButton(1) ){
         //button A green
@@ -209,17 +228,20 @@ public class Robot extends TimedRobot {
   
   public double getOptimalDriveSpeed(Double joystickValue) { 
     double x = joystickValue;
-
+/*
     SmartDashboard.putNumber( "stickValue", x );
     if( Math.abs(x) < .07 ){
       return 0;
     }
-    
+  
 
 
     return .8 * x;
+*/
 
-    /*
+      //Smokinghalo8 Made dis :>
+  //  return x;
+    
     //J@c0b
 
     if(x>0){
@@ -228,6 +250,6 @@ public class Robot extends TimedRobot {
         x=-x;
         return (-1)*((-43.4967)*(Math.pow(x,1.7))+(40.485)*(Math.pow(x,1.8))+(4.01411)*(x));
       }
-    */
+    
   }
 }
