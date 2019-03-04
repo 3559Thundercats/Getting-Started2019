@@ -224,6 +224,8 @@ public class Robot extends TimedRobot {
         robotDrive.tankDrive(-.1,.1,false);
       }
     
+     SmartDashboard.putNumber( "Left Speed", leftSpeed );
+      SmartDashboard.putNumber( "Right Speed", rightSpeed );
   }
 
   /**
