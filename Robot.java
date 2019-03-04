@@ -36,8 +36,10 @@ import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
  */
 public class Robot extends TimedRobot {  
 
-  
-  public static OI m_oi;
+ private static final String kDefaultAuto = "Default";
+  private static final String kCustomAuto = "My Auto";
+  private String m_autoSelected;
+  private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
   public double number = 1;
   public double loopCounter = 0;
