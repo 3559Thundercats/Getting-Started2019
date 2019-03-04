@@ -114,6 +114,12 @@ public class Robot extends TimedRobot {
     // cServer4.startAutomaticCapture(3);
     c.setClosedLoopControl(true);
 
+      m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
+    m_chooser.addOption("My Auto", kCustomAuto);
+    SmartDashboard.putData("Auto choices", m_chooser);
+    SmartDashboard.putNumber("Speed Modifier", speedModifier );
+
+    
   }
 
   /**
@@ -159,6 +165,9 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
    
+     SmartDashboard.putNumber("Left Stick", leftStick );
+      SmartDashboard.putNumber("Right Stick", rightStick );
+    
       loopCounter++;
 
       refreshJoystickAxes();
