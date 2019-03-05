@@ -26,6 +26,8 @@ import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
+import com.revrobotics.CANEncoder;
+import edu.wpi.first.wpilibj.DigitalInput;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -36,14 +38,20 @@ import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
  */
 public class Robot extends TimedRobot {  
 
+  DigitalInput topLimitSwitch = new DigitalInput(0);
+  DigitalInput bottomLimitSwitch = new DigitalInput(1);
+
  private static final String kDefaultAuto = "Default";
   private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
+  public double speedModifier = 0.6;
+ 
   public double number = 1;
   public double loopCounter = 0;
   public double elevatorSpeed = .3;
+  private CANEncoder m_encoder1;
 
   //right side controllers
   private int canDeviceID1 = 10;
@@ -72,6 +80,9 @@ public class Robot extends TimedRobot {
 
   private final DifferentialDrive
   robotDrive = new DifferentialDrive(spdc_left, spdc_right);
+
+  public double leftSpeed = spdc_left.get();
+  public double rightSpeed = spdc_right.get();
  
   private final Joystick stick1 = new Joystick(0);
 
@@ -115,6 +126,8 @@ public class Robot extends TimedRobot {
     // cServer3.startAutomaticCapture(2);
     // cServer4.startAutomaticCapture(3);
     c.setClosedLoopControl(true);
+
+    m_encoder1 = motor3.getEncoder();
 
       m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
@@ -167,19 +180,22 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
    
-     SmartDashboard.putNumber("Left Stick", leftStick );
-      SmartDashboard.putNumber("Right Stick", rightStick );
+     SmartDashboard.putNumber("Left Stick", getLeftstick() );
+      SmartDashboard.putNumber("Right Stick", getRightstick() );
+      SmartDashboard.putNumber("encoder Position", m_encoder1.getPosition());
     
       loopCounter++;
 
       refreshJoystickAxes();
-/*
-    double elevatorh = 0;
-      if() {
 
+    double elevatorh = 0;
+      if(m_encoder1.getPosition() >= elevatorh) {
+        robotDrive.tankDrive(0.5*(-getOptimalDriveSpeed(getLeftstick())), 0.5*(-getOptimalDriveSpeed (getRightstick())),false);
       }else {
       robotDrive.tankDrive(-getOptimalDriveSpeed(getLeftstick()),-getOptimalDriveSpeed (getRightstick()),false);
-      }*/
+      }
+
+      
       //robotDrive.curvatureDrive( -axisLy, axisLx, true);
       /*
       if( Math.abs(axis1x) > .07 || Math.abs(axis1y) >.07 ){
@@ -196,6 +212,10 @@ public class Robot extends TimedRobot {
         motor3.set(elevatorSpeed);
       }else if( stick1.getRawButton(3)) {
         motor3.set(-elevatorSpeed);
+      }else if(topLimitSwitch.get()) {
+        motor3.set(-0.02);
+      }else if(bottomLimitSwitch.get()) {
+        motor3.set(-0.02);
       }else {
         motor3.set(-0.02);
       }
@@ -226,8 +246,8 @@ public class Robot extends TimedRobot {
         robotDrive.tankDrive(-.1,.1,false);
       }
     
-     SmartDashboard.putNumber( "Left Speed", leftSpeed );
-      SmartDashboard.putNumber( "Right Speed", rightSpeed );
+     SmartDashboard.putNumber( "Left Speed", leftSpeed);
+      SmartDashboard.putNumber( "Right Speed", rightSpeed);
   }
 
   /**
@@ -247,8 +267,6 @@ public class Robot extends TimedRobot {
       return 0;
     }
   
-
-
     return .8 * x;
 */
 
@@ -264,64 +282,5 @@ public class Robot extends TimedRobot {
         return (-1)*((-43.4967)*(Math.pow(x,1.7))+(40.485)*(Math.pow(x,1.8))+(4.01411)*(x));
       }
     
-  }
-   public void robotDrive( double leftStick, double rightStick ){
-
-      driveLoopCount++;
-      if( driveLoopCount < 2){
-        leftSpeed = speedModifier * leftStick;
-        rightSpeed = speedModifier * rightStick;
-      }
-      
-      //balance joystick values for smooth robot steering
-      if( leftStick > 0 && rightStick > 0 ){
-        //bot is moving forward
-        if( leftStick > rightStick ){
-          if ( rightSpeed < leftSpeed * .4 ){
-            rightSpeed = leftSpeed * .4;
-          }
-        }
-        else{
-          //right stick is greater
-          if ( leftSpeed < rightSpeed *.4 ){
-            leftSpeed = rightSpeed * .4;
-          }
-        }
-      }
-      else if( leftStick > .05 && rightStick < 0 ||
-          leftStick < 0 && rightStick > .05 ){
-          //bot is rotating 
-          leftSpeed = leftStick*.4;
-          rightSpeed = rightStick*.4;
-      }
-      else{
-        //bot is moving backward
-        if( leftStick < rightStick ){
-          if ( rightSpeed > leftSpeed * .4 ){
-            rightSpeed = leftSpeed * .4;
-          }
-        }
-        else{
-          //right stick is less
-          if ( leftSpeed > rightSpeed *.4 ){
-            leftSpeed = rightSpeed * .4;
-          }
-        }
-      }
-      
-      // End of Balance Code
-      
-      
-      if( leftStick < .9 || rightStick < .9 ){
-        //reset the loop count time delay
-        driveLoopCount = 0;
-      }
-      if( driveLoopCount > 2 ){
-        rightSpeed = rightSpeed *1.03;
-        leftSpeed = rightSpeed;
-      }
-
-      SmartDashboard.putNumber( "Left Speed", leftSpeed );
-      SmartDashboard.putNumber( "Right Speed", rightSpeed );
   }
 }
