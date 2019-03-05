@@ -265,4 +265,63 @@ public class Robot extends TimedRobot {
       }
     
   }
+   public void robotDrive( double leftStick, double rightStick ){
+
+      driveLoopCount++;
+      if( driveLoopCount < 2){
+        leftSpeed = speedModifier * leftStick;
+        rightSpeed = speedModifier * rightStick;
+      }
+      
+      //balance joystick values for smooth robot steering
+      if( leftStick > 0 && rightStick > 0 ){
+        //bot is moving forward
+        if( leftStick > rightStick ){
+          if ( rightSpeed < leftSpeed * .4 ){
+            rightSpeed = leftSpeed * .4;
+          }
+        }
+        else{
+          //right stick is greater
+          if ( leftSpeed < rightSpeed *.4 ){
+            leftSpeed = rightSpeed * .4;
+          }
+        }
+      }
+      else if( leftStick > .05 && rightStick < 0 ||
+          leftStick < 0 && rightStick > .05 ){
+          //bot is rotating 
+          leftSpeed = leftStick*.4;
+          rightSpeed = rightStick*.4;
+      }
+      else{
+        //bot is moving backward
+        if( leftStick < rightStick ){
+          if ( rightSpeed > leftSpeed * .4 ){
+            rightSpeed = leftSpeed * .4;
+          }
+        }
+        else{
+          //right stick is less
+          if ( leftSpeed > rightSpeed *.4 ){
+            leftSpeed = rightSpeed * .4;
+          }
+        }
+      }
+      
+      // End of Balance Code
+      
+      
+      if( leftStick < .9 || rightStick < .9 ){
+        //reset the loop count time delay
+        driveLoopCount = 0;
+      }
+      if( driveLoopCount > 2 ){
+        rightSpeed = rightSpeed *1.03;
+        leftSpeed = rightSpeed;
+      }
+
+      SmartDashboard.putNumber( "Left Speed", leftSpeed );
+      SmartDashboard.putNumber( "Right Speed", rightSpeed );
+  }
 }
