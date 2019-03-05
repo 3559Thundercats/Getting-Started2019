@@ -81,6 +81,7 @@ public class Robot extends TimedRobot {
   private final DifferentialDrive
   robotDrive = new DifferentialDrive(spdc_left, spdc_right);
 
+  // is this supposed to be: "spdc_left.set();" instead of: ".get();"
   public double leftSpeed = spdc_left.get();
   public double rightSpeed = spdc_right.get();
  
