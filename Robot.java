@@ -19,6 +19,7 @@ import com.revrobotics.*;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Solenoid;
+import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.buttons.Button;
 import edu.wpi.first.wpilibj.buttons.JoystickButton;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
@@ -28,6 +29,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 import com.revrobotics.CANEncoder;
 import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.Spark;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -47,31 +49,45 @@ public class Robot extends TimedRobot {
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
   public double speedModifier = 0.6;
- 
+ public double driveLoopCount = 0;
   public double number = 1;
   public double loopCounter = 0;
   public double elevatorSpeed = .3;
-  private CANEncoder m_encoder1;
+  private CANEncoder elevatorEncoder;
+  double elevatorh = 0;
+
+  // elevator ID
+  private int canDeviceID7 = 12;
 
   //right side controllers
-  private int canDeviceID1 = 10;
-  private int canDeviceID2 = 11;
-  private int canDeviceID3 = 12;
+  private int canDeviceID1 = 16;
+  private int canDeviceID3 = 17;
+  private int canDeviceID2 = 18;
 
+  //private int canDeviceID7 = 20;
   //left side controllers
-  private int canDeviceID4 = 13;
-  private int canDeviceID5 = 14;
-  private int canDeviceID6 = 15;
+  private int canDeviceID4 = 19;
+  private int canDeviceID5 = 20;
+  private int canDeviceID6 = 21;
+
+//CURRENTLY FLIPPED. BACK IS FRONT, FRONT IS BACK
 
   private CANSparkMax motor1 = new CANSparkMax( canDeviceID1, MotorType.kBrushless);
   private CANSparkMax motor2 = new CANSparkMax( canDeviceID2, MotorType.kBrushless);
   private CANSparkMax motor3 = new CANSparkMax( canDeviceID3, MotorType.kBrushless);
-  private SpeedControllerGroup spdc_right = new SpeedControllerGroup(motor1, motor2);
+  //private CANSparkMax motor7 = new CANSparkMax(canDeviceID7, MotorType.kBrushless);
+  private SpeedControllerGroup spdc_right = new SpeedControllerGroup(motor1, motor2, motor3);
 
   private CANSparkMax motor4 = new CANSparkMax( canDeviceID4, MotorType.kBrushless);
   private CANSparkMax motor5 = new CANSparkMax( canDeviceID5, MotorType.kBrushless);
   private CANSparkMax motor6 = new CANSparkMax( canDeviceID6, MotorType.kBrushless);
-  private SpeedControllerGroup spdc_left = new SpeedControllerGroup(motor4, motor5);
+  private SpeedControllerGroup spdc_left = new SpeedControllerGroup(motor4, motor5, motor6);
+
+  //elevator motor
+  private CANSparkMax elevator = new CANSparkMax(canDeviceID7, MotorType.kBrushless);
+
+  // claw Lift/lower (clift)
+  private Spark clift = new Spark(0);
 
   Compressor c = new Compressor(0);
   
@@ -81,11 +97,11 @@ public class Robot extends TimedRobot {
   private final DifferentialDrive
   robotDrive = new DifferentialDrive(spdc_left, spdc_right);
 
-  // is this supposed to be: "spdc_left.set();" instead of: ".get();"
-  public double leftSpeed = spdc_left.get();
-  public double rightSpeed = spdc_right.get();
+  public double leftSpeed = 0;
+  public double rightSpeed = 0;
  
   private final Joystick stick1 = new Joystick(0);
+  private final Joystick stick2 = new Joystick(1);
 
   Double axisLx = 0.0;
   Double axisLy = 0.0;
@@ -100,13 +116,15 @@ public class Robot extends TimedRobot {
 
   //private final Timer timer = new Timer();
   
-
+/*
  public void refreshJoystickAxes(){
+     //used for arcade drive
      axisLx = stick1.getRawAxis(0);
      axisLy = stick1.getRawAxis(1);
      axisRx = stick1.getRawAxis(4);
      axisRy = stick1.getRawAxis(5);
  }
+*/
 
   public double getLeftstick() {
     return stick1.getRawAxis(1);
@@ -128,7 +146,7 @@ public class Robot extends TimedRobot {
     // cServer4.startAutomaticCapture(3);
     c.setClosedLoopControl(true);
 
-    m_encoder1 = motor3.getEncoder();
+    elevatorEncoder = elevator.getEncoder();
 
       m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
@@ -183,42 +201,66 @@ public class Robot extends TimedRobot {
    
      SmartDashboard.putNumber("Left Stick", getLeftstick() );
       SmartDashboard.putNumber("Right Stick", getRightstick() );
-      SmartDashboard.putNumber("encoder Position", m_encoder1.getPosition());
+      SmartDashboard.putNumber("encoder Position", elevatorEncoder.getPosition());
+
+
+      if( number == 1) {
+     
+        spdc_right.set(0.6);
+        spdc_left.set(-0.6);
+       }
+        if (getLeftstick() > 0.5 || getLeftstick() < -0.5) {
+          number = 0;
+          
+          }
+        if (number == 0) {
+    
+          myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
+          
+        }
+
     
       loopCounter++;
 
-      refreshJoystickAxes();
-
-    double elevatorh = 0;
-      if(m_encoder1.getPosition() >= elevatorh) {
-        robotDrive.tankDrive(0.5*(-getOptimalDriveSpeed(getLeftstick())), 0.5*(-getOptimalDriveSpeed (getRightstick())),false);
-      }else {
-      robotDrive.tankDrive(-getOptimalDriveSpeed(getLeftstick()),-getOptimalDriveSpeed (getRightstick()),false);
-      }
+      //refreshJoystickAxes();
 
       
-      //robotDrive.curvatureDrive( -axisLy, axisLx, true);
-      /*
-      if( Math.abs(axis1x) > .07 || Math.abs(axis1y) >.07 ){
-        robotDrive.arcadeDrive(-getLeftstick(),stick1.getRawAxis(0));
+
+      
+     /* if(elevatorEncoder.getPosition() >= elevatorh) {
+        
+         myRobotDrive( stick1.getRawAxis(5), stick1.getRawAxis(1) );
+
+      }else {
+
+           myRobotDrive( stick1.getRawAxis(5), stick1.getRawAxis(1) );
+    */
+
+/*
+      while (loopCounter < 50) {
+
+        clift.set(0.5);
+
       }
-      if( Math.abs(axis2x) > .07 || Math.abs(axis2y) >.07 ){
-        robotDrive.arcadeDrive(-getRightstick()*.4,stick1.getRawAxis(4)*.4);
-      }
-      */
+
+      clift.set(0);
+*/
       
       //elevator control
       elevatorSpeed = elevatorSpeed * 1.02;
-      if( stick1.getRawButton(4)) {
-        motor3.set(elevatorSpeed);
-      }else if( stick1.getRawButton(3)) {
-        motor3.set(-elevatorSpeed);
-      }else if(topLimitSwitch.get()) {
-        motor3.set(-0.02);
-      }else if(bottomLimitSwitch.get()) {
-        motor3.set(-0.02);
-      }else {
-        motor3.set(-0.02);
+      if( stick1.getRawButton(4) ) {
+        elevator.set(elevatorSpeed);
+      }else if( stick1.getRawButton(3) ) {
+        elevator.set(-elevatorSpeed);
+      }/*
+       else if( topLimitSwitch.get() ) {
+        elevator.set(-0.02);
+      }else if( bottomLimitSwitch.get() ) {
+        elevator.set(-0.02);
+       
+      }*/
+      else {
+        elevator.set(-0.02);
       }
      
       if( stick1.getRawButton(1) ){
@@ -235,25 +277,26 @@ public class Robot extends TimedRobot {
       //D-pad POV values measured in degrees
       SmartDashboard.putNumber( "POV", stick1.getPOV() );
       if( stick1.getPOV() == 0 ){
-        robotDrive.tankDrive(.2,.2,false);
+        robotDrive.tankDrive(.3,.3,false);
       }
       if( stick1.getPOV() == 180 ){
-        robotDrive.tankDrive(-.2,-.2,false);
+        robotDrive.tankDrive(-.3,-.3,false);
       }
       if( stick1.getPOV() == 90 ){
-        robotDrive.tankDrive(.1,-.1,false);
+        robotDrive.tankDrive(.3,-.3,false);
       }
       if( stick1.getPOV() == 270 ){
-        robotDrive.tankDrive(-.1,.1,false);
+        robotDrive.tankDrive(-.3,.3,false);
       }
-    
-     SmartDashboard.putNumber( "Left Speed", leftSpeed);
-      SmartDashboard.putNumber( "Right Speed", rightSpeed);
-  }
+
+      myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
+
+  }//end teleopPeriodic()
 
   /**
    * This function is called periodically during test mode.
    */
+
   @Override
   public void testPeriodic() {
   }
@@ -284,7 +327,8 @@ public class Robot extends TimedRobot {
       }
     
   }
-  public void robotDrive( double leftStick, double rightStick ){
+  
+  public void myRobotDrive( double leftStick, double rightStick ){
 
       driveLoopCount++;
       if( driveLoopCount < 2){
@@ -336,11 +380,19 @@ public class Robot extends TimedRobot {
         driveLoopCount = 0;
       }
       if( driveLoopCount > 2 ){
-        rightSpeed = rightSpeed *1.03;
-        leftSpeed = rightSpeed;
+         rightSpeed = rightSpeed *1.03;
+         leftSpeed = leftSpeed *1.03;
+        //rightSpeed = -1;
+       // leftSpeed = -1;
+
+
       }
+
+      spdc_left.set( leftSpeed );
+      spdc_right.set( -rightSpeed );
 
       SmartDashboard.putNumber( "Left Speed", leftSpeed );
       SmartDashboard.putNumber( "Right Speed", rightSpeed );
   }
+  
 }
