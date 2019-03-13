@@ -1,0 +1,76 @@
+// Vision Processing imports
+import frc.robot.griptest1;
+import org.opencv.core.Rect;
+import org.opencv.imgproc.Imgproc;
+
+import edu.wpi.cscore.UsbCamera;
+import edu.wpi.first.wpilibj.CameraServer;
+import edu.wpi.first.wpilibj.IterativeRobot;
+import edu.wpi.first.wpilibj.RobotDrive;
+import edu.wpi.first.wpilibj.vision.VisionRunner;
+import edu.wpi.first.wpilibj.vision.VisionThread;
+// end of Vision Processing imports
+import edu.wpi.first.vision.*;
+
+public class Robot extends TimedRobot { 
+
+  private static final int IMG_WIDTH = 320;
+  private static final int IMG_HEIGHT = 240;  
+
+	private VisionThread visionThread;
+  private double centerX = 0.0;
+  private double centerY = 0.0;
+
+	
+	private final Object imgLock = new Object();
+  
+  CameraServer cServer = CameraServer.getInstance();
+}
+
+@Override
+  public void robotInit() {
+    cServer.startAutomaticCapture(0);
+     
+    // vision processing
+
+    UsbCamera cServer = CameraServer.getInstance().startAutomaticCapture(1);
+    cServer.setResolution(IMG_WIDTH, IMG_HEIGHT);
+
+
+    visionThread = new VisionThread(cServer, new griptest1(), pipeline -> {
+        if (!pipeline.filterContoursOutput().isEmpty()) {
+            
+            Rect r = Imgproc.boundingRect(pipeline.filterContoursOutput().get(0));
+            Rect l = Imgproc.boundingRect(pipeline.filterContoursOutput().get(1));
+            synchronized (imgLock) {
+                centerX = r.x + (r.width / 2);
+                centerY = l.x + (l.width / 2);
+            }
+        }
+    });
+    visionThread.start();
+
+  }
+  
+  @Override
+  public void TeleopPeriodic() {
+    autonomousVisionTargets();
+    }
+
+// Use this as template for autonomous
+  public void autonomousVisionTargets () {
+
+    while (stick1.getRawButton(5)) {
+      double centerX;
+      double centerY;
+
+        synchronized (imgLock) {
+          centerX = this.centerX;
+          centerY = this.centerY;
+        }
+
+        double averageCenter = (centerX + centerY) / 2;
+        double turnRobot = averageCenter - (IMG_WIDTH / 2);
+        robotDrive.tankDrive(-0.6, 0.6 + (turnRobot * 0.005));
+    }
+  }
