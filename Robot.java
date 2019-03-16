@@ -28,6 +28,8 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 import com.revrobotics.CANEncoder;
+import com.revrobotics.CANSparkMax.IdleMode;
+
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.Spark;
 
@@ -42,40 +44,42 @@ public class Robot extends TimedRobot {
 
   DigitalInput topLimitSwitch = new DigitalInput(0);
   DigitalInput bottomLimitSwitch = new DigitalInput(1);
+  public double upperEncoderLimit = 156;
+  public double middleRocketPOS = 80.6;
+  public double elevatorEncoderPos = 0;
+  public double safetyLimitFactor = 50;
+  
 
- private static final String kDefaultAuto = "Default";
+  private static final String kDefaultAuto = "Default";
   private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
   public double speedModifier = 0.6;
- public double driveLoopCount = 0;
-  public double number = 1;
+  public double rampRate = 0.35;
+  public double driveLoopCount = 0;
+  public boolean autoDriveForward = true;
   public double loopCounter = 0;
-  public double elevatorSpeed = .3;
+  public double elevatorSpeed = .5;
   private CANEncoder elevatorEncoder;
-  double elevatorh = 0;
-
-  // elevator ID
-  private int canDeviceID7 = 12;
+  double elevatorHome = 0;
 
   //right side controllers
   private int canDeviceID1 = 16;
   private int canDeviceID3 = 17;
   private int canDeviceID2 = 18;
 
-  //private int canDeviceID7 = 20;
   //left side controllers
   private int canDeviceID4 = 19;
   private int canDeviceID5 = 20;
   private int canDeviceID6 = 21;
 
-//CURRENTLY FLIPPED. BACK IS FRONT, FRONT IS BACK
+  // elevator ID
+  private int canDeviceID7 = 12;
 
   private CANSparkMax motor1 = new CANSparkMax( canDeviceID1, MotorType.kBrushless);
   private CANSparkMax motor2 = new CANSparkMax( canDeviceID2, MotorType.kBrushless);
   private CANSparkMax motor3 = new CANSparkMax( canDeviceID3, MotorType.kBrushless);
-  //private CANSparkMax motor7 = new CANSparkMax(canDeviceID7, MotorType.kBrushless);
   private SpeedControllerGroup spdc_right = new SpeedControllerGroup(motor1, motor2, motor3);
 
   private CANSparkMax motor4 = new CANSparkMax( canDeviceID4, MotorType.kBrushless);
@@ -86,16 +90,13 @@ public class Robot extends TimedRobot {
   //elevator motor
   private CANSparkMax elevator = new CANSparkMax(canDeviceID7, MotorType.kBrushless);
 
-  // claw Lift/lower (clift)
+  //claw Lift/lower (clift)
   private Spark clift = new Spark(0);
 
+  //Pneumatics
   Compressor c = new Compressor(0);
-  
   Solenoid clawA = new Solenoid(1);
   Solenoid clawB=new Solenoid(2);
-
-  private final DifferentialDrive
-  robotDrive = new DifferentialDrive(spdc_left, spdc_right);
 
   public double leftSpeed = 0;
   public double rightSpeed = 0;
@@ -116,15 +117,7 @@ public class Robot extends TimedRobot {
 
   //private final Timer timer = new Timer();
   
-/*
- public void refreshJoystickAxes(){
-     //used for arcade drive
-     axisLx = stick1.getRawAxis(0);
-     axisLy = stick1.getRawAxis(1);
-     axisRx = stick1.getRawAxis(4);
-     axisRy = stick1.getRawAxis(5);
- }
-*/
+
 
   public double getLeftstick() {
     return stick1.getRawAxis(1);
@@ -133,6 +126,8 @@ public class Robot extends TimedRobot {
   public double getRightstick() {
     return stick1.getRawAxis(5);
   }
+
+  
   /**
    * This function is run when the robot is first started up and should be
    * used for any initialization code.
@@ -140,18 +135,39 @@ public class Robot extends TimedRobot {
   @Override
   public void robotInit() {
     //m_oi = new OI();
-     cServer.startAutomaticCapture(0);
+   
+    cServer.startAutomaticCapture(0);
      cServer2.startAutomaticCapture(1);
     // cServer3.startAutomaticCapture(2);
     // cServer4.startAutomaticCapture(3);
     c.setClosedLoopControl(true);
-
+    
+    // elevatorEncoder.setPosition(10);
     elevatorEncoder = elevator.getEncoder();
 
-      m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
+    m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
     SmartDashboard.putNumber("Speed Modifier", speedModifier );
+    SmartDashboard.putNumber("Upper Encoder Limit", upperEncoderLimit );
+    
+    motor1.setIdleMode(IdleMode.kCoast);
+    motor2.setIdleMode(IdleMode.kCoast);
+    motor3.setIdleMode(IdleMode.kCoast);
+    motor4.setIdleMode(IdleMode.kCoast);
+    motor5.setIdleMode(IdleMode.kCoast);
+    motor6.setIdleMode(IdleMode.kCoast);
+
+    motor1.setOpenLoopRampRate(rampRate);
+    motor2.setOpenLoopRampRate(rampRate);
+    motor3.setOpenLoopRampRate(rampRate);
+    motor4.setOpenLoopRampRate(rampRate);
+    motor5.setOpenLoopRampRate(rampRate);
+    motor6.setOpenLoopRampRate(rampRate);
+    
+    // elevator
+    elevator.setOpenLoopRampRate(0.5);
+
 
     
   }
@@ -181,7 +197,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    
+      autoDriveForward = true;
   }
 
   /**
@@ -189,6 +205,26 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousPeriodic() {
+
+    loopCounter++;
+
+    // auto forward at the beginning of the match
+    if( autoDriveForward) {
+      spdc_right.set(-0.8);
+      spdc_left.set(0.8);
+    }
+    if ( getLeftstick() > 0.5 || getLeftstick() < -0.5 || loopCounter > 65 ) {
+      autoDriveForward = false;
+    }
+    if (!autoDriveForward) {
+      myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
+    }
+
+    clawControl();  
+     
+    //elevatorControl();
+
+    precisionDrive();
     
   }
   
@@ -199,136 +235,227 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
    
-     SmartDashboard.putNumber("Left Stick", getLeftstick() );
-      SmartDashboard.putNumber("Right Stick", getRightstick() );
-      SmartDashboard.putNumber("encoder Position", elevatorEncoder.getPosition());
-
-
-      if( number == 1) {
-     
-        spdc_right.set(0.6);
-        spdc_left.set(-0.6);
-       }
-        if (getLeftstick() > 0.5 || getLeftstick() < -0.5) {
-          number = 0;
-          
-          }
-        if (number == 0) {
+    loopCounter++;
     
-          myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
-          
-        }
+    myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
+  
+    clawControl();  
+  
+    elevatorControl();
 
-    
-      loopCounter++;
-
-      //refreshJoystickAxes();
-
+    precisionDrive();
       
-
-      
-     /* if(elevatorEncoder.getPosition() >= elevatorh) {
-        
-         myRobotDrive( stick1.getRawAxis(5), stick1.getRawAxis(1) );
-
-      }else {
-
-           myRobotDrive( stick1.getRawAxis(5), stick1.getRawAxis(1) );
-    */
-
-/*
-      while (loopCounter < 50) {
-
-        clift.set(0.5);
-
-      }
-
-      clift.set(0);
-*/
-      
-      //elevator control
-      elevatorSpeed = elevatorSpeed * 1.02;
-      if( stick1.getRawButton(4) ) {
-        elevator.set(elevatorSpeed);
-      }else if( stick1.getRawButton(3) ) {
-        elevator.set(-elevatorSpeed);
-      }/*
-       else if( topLimitSwitch.get() ) {
-        elevator.set(-0.02);
-      }else if( bottomLimitSwitch.get() ) {
-        elevator.set(-0.02);
-       
-      }*/
-      else {
-        elevator.set(-0.02);
-      }
-     
-      if( stick1.getRawButton(1) ){
-        //button A green
-        clawA.set(true);
-        clawB.set(false);
-     }
-      if(  stick1.getRawButton(2) ) {
-        //button B red
-        clawA.set(false);
-        clawB.set(true);
-      }
-
-      //D-pad POV values measured in degrees
-      SmartDashboard.putNumber( "POV", stick1.getPOV() );
-      if( stick1.getPOV() == 0 ){
-        robotDrive.tankDrive(.3,.3,false);
-      }
-      if( stick1.getPOV() == 180 ){
-        robotDrive.tankDrive(-.3,-.3,false);
-      }
-      if( stick1.getPOV() == 90 ){
-        robotDrive.tankDrive(.3,-.3,false);
-      }
-      if( stick1.getPOV() == 270 ){
-        robotDrive.tankDrive(-.3,.3,false);
-      }
-
-      myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
-
   }//end teleopPeriodic()
+
+
 
   /**
    * This function is called periodically during test mode.
    */
-
   @Override
   public void testPeriodic() {
   }
 
+  public void clawControl(){
 
-  
-  public double getOptimalDriveSpeed(Double joystickValue) { 
-    double x = joystickValue;
-/*
-    SmartDashboard.putNumber( "stickValue", x );
-    if( Math.abs(x) < .07 ){
-      return 0;
+    //Claw Lift/Lower
+    if ( stick2.getRawButton(5) ) {
+      //left bumper
+      clift.set(0.5);
     }
-  
-    return .8 * x;
-*/
+    else if ( stick2.getRawButton(6) ) {
+      // right bumper
+      clift.set(-0.5);
+    }
+    else {
+      clift.set(0.0);
+    }
 
-      //Smokinghalo8 Made dis :>
-  //  return x;
+    //Claw Open/Close
+    if( stick2.getRawButton(1) ){
+      //Open - Button A, Green
+      clawA.set(true);
+      clawB.set(false);
+   }
+    if(  stick2.getRawButton(2) ) {
+      //Close - Button B, Red
+      clawA.set(false);
+      clawB.set(true);
+    }
+
+  }//end clawControl()
+
+
+
+  public void elevatorControl(){
+
+    SmartDashboard.putNumber("encoder Position", elevatorEncoder.getPosition());
+    SmartDashboard.putBoolean("upper limit", topLimitSwitch.get());
+    SmartDashboard.putBoolean("lower limit", bottomLimitSwitch.get());
+    SmartDashboard.putNumber("Elevator Speed", elevatorSpeed );
+    SmartDashboard.putBoolean("button 8", stick2.getRawButton(8));
     
-    //J@c0b
 
-    if(x>0){
-      return ((-43.4967)*(Math.pow(x,1.7))+(40.485)*(Math.pow(x,1.8))+(4.01411)*(x));
-      }else{
-        x=-x;
-        return (-1)*((-43.4967)*(Math.pow(x,1.7))+(40.485)*(Math.pow(x,1.8))+(4.01411)*(x));
+    elevatorEncoderPos = Math.abs(elevatorEncoder.getPosition());
+    SmartDashboard.putNumber("elevator encoder position", elevatorEncoderPos);
+
+    if( elevatorEncoderPos > 60 ){
+      rampRate = 2;
+      motor1.setOpenLoopRampRate(rampRate);
+      motor2.setOpenLoopRampRate(rampRate);
+      motor3.setOpenLoopRampRate(rampRate);
+      motor4.setOpenLoopRampRate(rampRate);
+      motor5.setOpenLoopRampRate(rampRate);
+      motor6.setOpenLoopRampRate(rampRate);
+    }
+    else{
+      rampRate = .35;
+    }
+
+
+    if( stick2.getRawButton(3) && bottomLimitSwitch.get()) {
+      //down
+      elevator.set(elevatorSpeed );
+
+      // limit approach safety
+      if(elevatorEncoderPos < elevatorHome + safetyLimitFactor) {
+        elevator.set(.15);
       }
-    
-  }
+      else{
+        elevator.set(.5);
+      }
+    }else if( stick2.getRawButton(4) && topLimitSwitch.get()) {
+      // up
+      elevator.set(-0.15);
+
+      // limit approach safety
+      if(elevatorEncoderPos < elevatorHome + upperEncoderLimit - safetyLimitFactor){
+        elevator.set(-.5);
+      }
+      else{
+        elevatorSpeed = -.5;
+      }
+    }
+    else if(stick1.getRawButton(1)){
+      
+      if( elevatorEncoderPos < middleRocketPOS - 5) {
+        elevator.set(-0.5);
+      }
+      if(elevatorEncoderPos > middleRocketPOS + 5) {
+        elevator.set(0.5);
+      }
+      else {
+        elevator.set(-0.02);
+          
+      }
+    } 
+    else {
+      elevator.set(-0.02);
+    }
+
+    if(!bottomLimitSwitch.get()) {
+       elevatorEncoder.setPosition(0);
+       elevatorHome = elevatorEncoderPos;
+    }
+
+  }//end elevatorControl()
+
+
+
+  public void precisionDrive(){
+
+    //D-pad POV values measured in degrees
+    SmartDashboard.putNumber( "POV", stick1.getPOV() );
+    while( stick1.getPOV() == 0 ){
+      spdc_left.set( .22 );
+      spdc_right.set( -.22 );
+    }
+    while( stick1.getPOV() == 180 ){
+      spdc_left.set( -.22 );
+      spdc_right.set( .22 );
+    }
+    while( stick1.getPOV() == 90 ){
+      spdc_left.set( .22 );
+      spdc_right.set(.22 );
+    }
+    while( stick1.getPOV() == 270 ){
+      spdc_left.set( -.22 );
+      spdc_right.set( -.22 );
+    }
+
+  }//end precisionDrive()
+
   
+
   public void myRobotDrive( double leftStick, double rightStick ){
+
+    SmartDashboard.putNumber("Left Stick", leftStick );
+    SmartDashboard.putNumber("Right Stick", rightStick );
+
+ 
+      driveLoopCount++;
+      if( driveLoopCount < 2){
+        leftSpeed = speedModifier * leftStick;
+        rightSpeed = speedModifier * rightStick;
+      }
+      
+      //balance joystick values for smooth robot steering
+      if( leftStick > 0 && rightStick > 0 ){
+        //bot is moving forward
+        if( leftStick > rightStick ){
+          if ( rightSpeed < leftSpeed * .4 ){
+            rightSpeed = leftSpeed * .4;
+          }
+        }
+        else{
+          //right stick is greater
+          if ( leftSpeed < rightSpeed *.4 ){
+            leftSpeed = rightSpeed * .4;
+          }
+        }
+      }
+      else if( leftStick > .05 && rightStick < 0 ||
+          leftStick < 0 && rightStick > .05 ){
+          //bot is rotating 
+          leftSpeed = leftStick * .4;
+          rightSpeed = rightStick * .4;
+      }
+      else{
+        //bot is moving backward
+        if( leftStick < rightStick ){
+          if ( rightSpeed > leftSpeed * .4 ){
+            rightSpeed = leftSpeed * .4;
+          }
+        }
+        else{
+          //right stick is less
+          if ( leftSpeed > rightSpeed *.4 ){
+            leftSpeed = rightSpeed * .4;
+          }
+        }
+      }
+      // End of Balance Code
+      
+      if( leftStick < .9 || rightStick < .9 ){
+        //reset the loop count time delay
+        driveLoopCount = 0;
+      }
+      if( driveLoopCount > 2 ){
+         rightSpeed = rightSpeed * 1.03;
+         leftSpeed = leftSpeed * 1.03;
+      }
+
+      spdc_left.set( leftSpeed );
+      spdc_right.set( -rightSpeed );
+
+      SmartDashboard.putNumber( "Left Speed", leftSpeed );
+      SmartDashboard.putNumber( "Right Speed", rightSpeed );
+    
+  }//end myRobotDrive()
+
+
+
+  public void myRobotDrive2( double leftStick, double rightStick ){
 
       driveLoopCount++;
       if( driveLoopCount < 2){
@@ -354,8 +481,8 @@ public class Robot extends TimedRobot {
       else if( leftStick > .05 && rightStick < 0 ||
           leftStick < 0 && rightStick > .05 ){
           //bot is rotating 
-          leftSpeed = leftStick*.4;
-          rightSpeed = rightStick*.4;
+          leftSpeed = leftStick * .4;
+          rightSpeed = rightStick * .4;
       }
       else{
         //bot is moving backward
@@ -370,7 +497,6 @@ public class Robot extends TimedRobot {
             leftSpeed = rightSpeed * .4;
           }
         }
-      }
       
       // End of Balance Code
       
@@ -380,12 +506,8 @@ public class Robot extends TimedRobot {
         driveLoopCount = 0;
       }
       if( driveLoopCount > 2 ){
-         rightSpeed = rightSpeed *1.03;
-         leftSpeed = leftSpeed *1.03;
-        //rightSpeed = -1;
-       // leftSpeed = -1;
-
-
+         rightSpeed = rightSpeed * 1.03;
+         leftSpeed = leftSpeed * 1.03;
       }
 
       spdc_left.set( leftSpeed );
@@ -393,6 +515,7 @@ public class Robot extends TimedRobot {
 
       SmartDashboard.putNumber( "Left Speed", leftSpeed );
       SmartDashboard.putNumber( "Right Speed", rightSpeed );
+    }
   }
   
 }
