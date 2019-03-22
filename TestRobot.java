@@ -7,76 +7,227 @@
 
 package frc.robot;
 
-import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.Spark;
-import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import java.lang.reflect.Array;
+import java.util.Arrays;
+import edu.wpi.first.wpilibj.CameraServer;
+import edu.wpi.first.wpilibj.Compressor;
+import edu.wpi.first.wpilibj.DoubleSolenoid;
+import edu.wpi.first.wpilibj.IterativeRobot;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj.SpeedControllerGroup;
-import edu.wpi.first.wpilibj.buttons.Button;
-import edu.wpi.first.wpilibj.buttons.JoystickButton;
+import edu.wpi.first.wpilibj.DriverStation;
 import com.revrobotics.*;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+
+import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Solenoid;
+import edu.wpi.first.wpilibj.Spark;
+import edu.wpi.first.wpilibj.buttons.Button;
+import edu.wpi.first.wpilibj.buttons.JoystickButton;
+import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.SpeedControllerGroup;
+import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
+import com.revrobotics.CANEncoder;
+import com.revrobotics.CANSparkMax.IdleMode;
+
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.Relay;
+
 /**
  * The VM is configured to automatically run this class, and to call the
- * functions corresponding to each mode, as described in the TimedRobot
+ * functions corresponding to each mode, as described in the IterativeRobot
  * documentation. If you change the name of this class or the package after
- * creating this project, you must also update the manifest file in the resource
- * directory.
+ * creating this project, you must also update the build.gradle file in the
+ * project.
  */
+public class Robot extends TimedRobot {  
 
+  private static final int IMG_WIDTH = 320;
+  private static final int IMG_HEIGHT = 240;  
 
+//	private VisionThread visionThread;
+  private double centerX = 0.0;
+  private double centerY = 0.0;
+  private Relay lightRing = new Relay(0);
+  private boolean lightOn = false;
+  private Timer ledTimer = new Timer();
 
-public class Robot extends TimedRobot {
+	
+	private final Object imgLock = new Object();
   
-  Spark leftDrivef = new Spark(1);
-  Spark leftDriveb = new Spark(2);
-  private SpeedControllerGroup sc_left = new SpeedControllerGroup(leftDrivef, leftDriveb);
-  Spark rightDrivef = new Spark(3);  
-  Spark rightDriveb = new Spark(4);
-  private SpeedControllerGroup sc_right= new SpeedControllerGroup(rightDrivef, rightDriveb);
- 
-  private static final int deviceID = 1;
-  private CANSparkMax neo_motor;
-  double driveSpeed = 1;
-  private CANEncoder m_encoder;
- 
-  private final DifferentialDrive 
-    robotDrive = new DifferentialDrive(sc_left, sc_right);
-  private final Joystick stick1 = new Joystick(0);
-  //Button lshoulder1 = new JoystickButton(stick1, 5);
-  //Button rshoulder1 = new JoystickButton(stick1, 6);
+ // CameraServer cServer = CameraServer.getInstance();
+  // vision inputs
 
-  private final Timer timer = new Timer();
+  DigitalInput leftLineSensor = new DigitalInput(3);
+  DigitalInput midLeftLineSensor = new DigitalInput(4);
+  DigitalInput midLineSensor = new DigitalInput(5);
+  DigitalInput midRightLineSensor = new DigitalInput(6);
+  DigitalInput rightLineSensor = new DigitalInput(7);
+  
+
+  DigitalInput topLimitSwitch = new DigitalInput(0);
+  DigitalInput bottomLimitSwitch = new DigitalInput(1);
+  public double upperEncoderLimit = 156;
+  public double middleRocketPOS = 80.6;
+  public double elevatorEncoderPos = 0;
+  public double safetyLimitFactor = 50;
+  
+
+  private static final String kDefaultAuto = "Default";
+  private static final String kCustomAuto = "My Auto";
+  private String m_autoSelected;
+  private final SendableChooser<String> m_chooser = new SendableChooser<>();
+
+  public double speedModifier = 0.6;
+  public double rampRate = 0.35;
+  public double driveLoopCount = 0;
+  public boolean autoDriveForward = true;
+  public double loopCounter = 0;
+  public double elevatorSpeed = .5;
+  private CANEncoder elevatorEncoder;
+  double elevatorHome = 0;
+
+  //right side controllers
+  private int canDeviceID1 = 13;
+  private int canDeviceID3 = 14;
+  private int canDeviceID2 = 15;
+
+  //left side controllers
+  private int canDeviceID4 = 10;
+  private int canDeviceID5 = 11;
+  private int canDeviceID6 = 12;
+
+  // elevator ID
+  private int canDeviceID7 = 16;
+
+  private CANSparkMax motor1 = new CANSparkMax( canDeviceID1, MotorType.kBrushless);
+  private CANSparkMax motor2 = new CANSparkMax( canDeviceID2, MotorType.kBrushless);
+  private CANSparkMax motor3 = new CANSparkMax( canDeviceID3, MotorType.kBrushless);
+  private SpeedControllerGroup spdc_right = new SpeedControllerGroup(motor1, motor2, motor3);
+
+  private CANSparkMax motor4 = new CANSparkMax( canDeviceID4, MotorType.kBrushless);
+  private CANSparkMax motor5 = new CANSparkMax( canDeviceID5, MotorType.kBrushless);
+  private CANSparkMax motor6 = new CANSparkMax( canDeviceID6, MotorType.kBrushless);
+  private SpeedControllerGroup spdc_left = new SpeedControllerGroup(motor4, motor5, motor6);
+
+  private final DifferentialDrive
+  robotDrive = new DifferentialDrive(spdc_left, spdc_right);
+
+  //elevator motor
+  private CANSparkMax elevator = new CANSparkMax(canDeviceID7, MotorType.kBrushless);
+
+  //claw Lift/lower (clift)
+  private Spark clift = new Spark(0);
+
+  //Pneumatics
+  Compressor c = new Compressor(0);
+  Solenoid clawA = new Solenoid(1);
+  Solenoid clawB=new Solenoid(2);
+
+  public double leftSpeed = 0;
+  public double rightSpeed = 0;
+ 
+  private final Joystick stick1 = new Joystick(0);
+  private final Joystick stick2 = new Joystick(1);
+
+  Double axisLx = 0.0;
+  Double axisLy = 0.0;
+  Double axisRx = 0.0;
+  Double axisRy = 0.0;
+
+
+
+ // CameraServer cServer2 = CameraServer.getInstance();
+  //CameraServer cServer3 = CameraServer.getInstance();
+  //CameraServer cServer4 = CameraServer.getInstance();
+
+  //private final Timer timer = new Timer();
+  
+
 
   public double getLeftstick() {
-  return stick1.getRawAxis(5);
+    return stick1.getRawAxis(1);
+    }
+  
+  public double getRightstick() {
+    return stick1.getRawAxis(5);
+  }
 
-}
-public double getRightstick() {
-  return stick1.getRawAxis(1);
-}
-
-/**
+  
+  /**
    * This function is run when the robot is first started up and should be
    * used for any initialization code.
    */
   @Override
   public void robotInit() {
-    neo_motor = new CANSparkMax(deviceID, MotorType.kBrushless);
-    m_encoder = neo_motor.getEncoder();
+    
+   // cServer.startAutomaticCapture(0);
+     
+    
 
-    //neo_motor.setRampRate(0);
+   //  cServer2.startAutomaticCapture(0);
+    // cServer3.startAutomaticCapture(2);
+    // cServer4.startAutomaticCapture(3);
+    c.setClosedLoopControl(true);
+    
+    // elevatorEncoder.setPosition(10);
+    elevatorEncoder = elevator.getEncoder();
+
+    m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
+    m_chooser.addOption("My Auto", kCustomAuto);
+    SmartDashboard.putData("Auto choices", m_chooser);
+    SmartDashboard.putNumber("Speed Modifier", speedModifier );
+    SmartDashboard.putNumber("Upper Encoder Limit", upperEncoderLimit );
+    
+    motor1.setIdleMode(IdleMode.kCoast);
+    motor2.setIdleMode(IdleMode.kCoast);
+    motor3.setIdleMode(IdleMode.kCoast);
+    motor4.setIdleMode(IdleMode.kCoast);
+    motor5.setIdleMode(IdleMode.kCoast);
+    motor6.setIdleMode(IdleMode.kCoast);
+
+    motor1.setOpenLoopRampRate(rampRate);
+    motor2.setOpenLoopRampRate(rampRate);
+    motor3.setOpenLoopRampRate(rampRate);
+    motor4.setOpenLoopRampRate(rampRate);
+    motor5.setOpenLoopRampRate(rampRate);
+    motor6.setOpenLoopRampRate(rampRate);
+    
+    // elevator
+    elevator.setOpenLoopRampRate(0.5);
+
+
+    
   }
 
   /**
-   * This function is run once each time the robot enters autonomous mode.
+   * This function is called every robot packet, no matter the mode. Use
+   * this for items like diagnostics that you want ran during disabled,
+   * autonomous, teleoperated and test.
+   *
+   * <p>This runs after the mode specific periodic functions, but before
+   * LiveWindow and SmartDashboard integrated updating.
+   */
+  @Override
+  public void robotPeriodic() {
+  }
+
+  /**
+   * This autonomous (along with the chooser code above) shows how to select
+   * between different autonomous modes using the dashboard. The sendable
+   * chooser code works with the Java SmartDashboard. If you prefer the
+   * LabVIEW Dashboard, remove all of the chooser code and uncomment the
+   * getString line to get the auto name from the text box below the Gyro
+   *
+   * <p>You can add additional auto modes by adding additional comparisons to
+   * the switch structure below with additional strings. If using the
+   * SendableChooser make sure to add them to the chooser code above as well.
    */
   @Override
   public void autonomousInit() {
-    timer.reset();
-    timer.start();
+      autoDriveForward = true;
   }
 
   /**
@@ -84,76 +235,84 @@ public double getRightstick() {
    */
   @Override
   public void autonomousPeriodic() {
-    /*
-    //drive forward one foot*
-     for (timer.get() ; timer.get() < 5 ; timer.get()) { 
-    //position of robot
-    double John = m_encoder.getPosition();
-    //approx. the number of revolutions to travel 1 foot
-    double stopPoint = 10.667;
-      if(John >= stopPoint) {
-        //neo_motor.set(0);
-        neo_motor.stopMotor();
-      }else {
-        neo_motor.set(0.75);
-      }
-      if (timer.get() == 5) {
-        break;
-      }
+
+    loopCounter++;
+
+    // auto forward at the beginning of the match
+    if( autoDriveForward) {
+      spdc_right.set(-0.8);
+      spdc_left.set(0.8);
     }
-    neo_motor.stopMotor();
-    */
+    if ( getLeftstick() > 0.5 || getLeftstick() < -0.5 || loopCounter > 65 ) {
+      autoDriveForward = false;
+    }
+    if (!autoDriveForward) {
+      myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
+    }
+
+    clawControl();  
+     
+    //elevatorControl();
+
+    precisionDrive();
     
-    // Drive for 2 seconds
-   //neo_motor.set(1);
-    if (timer.get() < 8.0) {
-      robotDrive.arcadeDrive(0.5, 0.0); // drive forwards half speed
-    } else {
-      robotDrive.stopMotor(); // stop robot
-    }
   }
+  
 
   /**
-   * This function is called once each time the robot enters teleoperated mode.
-   */
-  @Override
-  public void teleopInit() {
-    timer.start();
-  }
-
-  /**
-   * This function is called periodically during teleoperated mode.
+   * This function is called periodically during operator control.
    */
   @Override
   public void teleopPeriodic() {
-    robotDrive.tankDrive(getLeftstick()*driveSpeed , getRightstick()*driveSpeed );
-        /*if(m_encoder.getPosition() >= 1000 ) {
-      neo_motor.set(0.90);
-    }else {
-      neo_motor.set(0.75);
-    }*/
+    SmartDashboard.putBoolean("line sensor", leftLineSensor.get());
+   
+    loopCounter++;
+
     
-    //drive forward one foot*
-     for (timer.get() ; timer.get() < 5 ; timer.get()) { 
-    //position of robot
-    double John = m_encoder.getPosition();
-    //approx. the number of revolutions to travel 1 foot
-    double stopPoint = 10.667;
-      if(John >= stopPoint) {
-        //neo_motor.set(0);
-        neo_motor.stopMotor();
-      }else {
-        neo_motor.set(0.75);
+    if( stick2.getRawButton( 8 ) && ledTimer.get() > .2 ){
+      ledTimer.reset();
+      if ( lightOn ){
+        //light is on - turn off
+        lightOn = false;
+        lightRing.set( Relay.Value.kOff );
       }
-      if (timer.get() == 5) {
-        break;
+      else{
+        //light is off - turn on
+        lightOn = true;
+        lightRing.set( Relay.Value.kForward );
       }
     }
-    neo_motor.stopMotor();
+  
     
-    SmartDashboard.putNumber("Encoder Position", m_encoder.getPosition());
-    SmartDashboard.putNumber("Encoder Velocity", m_encoder.getVelocity());
-    //SmartDashboard.putNumber("Timer Count", timer.getFPGATimestamp());
+    myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
+  
+    clawControl();  
+  
+    elevatorControl();
+
+    precisionDrive();
+
+    lineDrive();
+
+  }//end teleopPeriodic()
+
+  public void lineDrive(){
+
+    while(stick1.getRawButton(8)) {
+      if(rightLineSensor.get() == true){//turn robot right until it hits the midright sensor
+        while(midRightLineSensor.get() != true){
+        robotDrive.tankDrive(0.6, 0.6);
+        }
+      }
+      else if(leftLineSensor.get() == true){
+        while(midLeftLineSensor.get() != true) {
+          robotDrive.tankDrive(-0.6, -0.6);
+        }
+      }
+      else {// robot reads no sensors: slow turn right
+        robotDrive.tankDrive(0.4, 0.4);
+      }
+    }
   }
 
   /**
@@ -162,4 +321,266 @@ public double getRightstick() {
   @Override
   public void testPeriodic() {
   }
+
+  public void clawControl(){
+
+    //Claw Lift/Lower
+    if ( stick2.getRawButton(5) ) {
+      //left bumper
+      clift.set(0.5);
+    }
+    else if ( stick2.getRawButton(6) ) {
+      // right bumper
+      clift.set(-0.5);
+    }
+    else {
+      clift.set(0.0);
+    }
+
+    //Claw Open/Close
+    if( stick2.getRawButton(1) ){
+      //Open - Button A, Green
+      clawA.set(true);
+      clawB.set(false);
+   }
+    if(  stick2.getRawButton(2) ) {
+      //Close - Button B, Red
+      clawA.set(false);
+      clawB.set(true);
+    }
+
+  }//end clawControl()
+
+
+
+  public void elevatorControl(){
+
+    SmartDashboard.putNumber("encoder Position", elevatorEncoder.getPosition());
+    SmartDashboard.putBoolean("upper limit", topLimitSwitch.get());
+    SmartDashboard.putBoolean("lower limit", bottomLimitSwitch.get());
+    SmartDashboard.putNumber("Elevator Speed", elevatorSpeed );
+    SmartDashboard.putBoolean("button 8", stick2.getRawButton(8));
+    
+
+    elevatorEncoderPos = Math.abs(elevatorEncoder.getPosition());
+    SmartDashboard.putNumber("elevator encoder position", elevatorEncoderPos);
+
+    if( elevatorEncoderPos > 60 ){
+      rampRate = 2;
+      motor1.setOpenLoopRampRate(rampRate);
+      motor2.setOpenLoopRampRate(rampRate);
+      motor3.setOpenLoopRampRate(rampRate);
+      motor4.setOpenLoopRampRate(rampRate);
+      motor5.setOpenLoopRampRate(rampRate);
+      motor6.setOpenLoopRampRate(rampRate);
+    }
+    else{
+      rampRate = .35;
+    }
+
+
+    if( stick2.getRawButton(3) && bottomLimitSwitch.get()) {
+      //down
+      elevator.set(elevatorSpeed );
+
+      // limit approach safety
+      if(elevatorEncoderPos < elevatorHome + safetyLimitFactor) {
+        elevator.set(.15);
+      }
+      else{
+        elevator.set(.5);
+      }
+    }else if( stick2.getRawButton(4) && topLimitSwitch.get()) {
+      // up
+      elevator.set(-0.15);
+
+      // limit approach safety
+      if(elevatorEncoderPos < elevatorHome + upperEncoderLimit - safetyLimitFactor){
+        elevator.set(-.5);
+      }
+      else{
+        elevatorSpeed = -.5;
+      }
+    }
+    else if(stick1.getRawButton(1)){
+      
+      if( elevatorEncoderPos < middleRocketPOS - 5) {
+        elevator.set(-0.5);
+      }
+      if(elevatorEncoderPos > middleRocketPOS + 5) {
+        elevator.set(0.5);
+      }
+      else {
+        elevator.set(-0.02);
+          
+      }
+    } 
+    else {
+      elevator.set(-0.02);
+    }
+
+    if(!bottomLimitSwitch.get()) {
+       elevatorEncoder.setPosition(0);
+       elevatorHome = elevatorEncoderPos;
+    }
+
+  }//end elevatorControl()
+
+
+
+  public void precisionDrive(){
+
+    //D-pad POV values measured in degrees
+    SmartDashboard.putNumber( "POV", stick1.getPOV() );
+    while( stick1.getPOV() == 0 ){
+      spdc_left.set( .22 );
+      spdc_right.set( -.22 );
+    }
+    while( stick1.getPOV() == 180 ){
+      spdc_left.set( -.22 );
+      spdc_right.set( .22 );
+    }
+    while( stick1.getPOV() == 90 ){
+      spdc_left.set( .22 );
+      spdc_right.set(.22 );
+    }
+    while( stick1.getPOV() == 270 ){
+      spdc_left.set( -.22 );
+      spdc_right.set( -.22 );
+    }
+
+  }//end precisionDrive()
+
+
+  public void myRobotDrive( double leftStick, double rightStick ){
+
+    SmartDashboard.putNumber("Left Stick", leftStick );
+    SmartDashboard.putNumber("Right Stick", rightStick );
+
+ 
+      driveLoopCount++;
+      if( driveLoopCount < 2){
+        leftSpeed = speedModifier * leftStick;
+        rightSpeed = speedModifier * rightStick;
+      }
+      
+      //balance joystick values for smooth robot steering
+      if( leftStick > 0 && rightStick > 0 ){
+        //bot is moving forward
+        if( leftStick > rightStick ){
+          if ( rightSpeed < leftSpeed * .4 ){
+            rightSpeed = leftSpeed * .4;
+          }
+        }
+        else{
+          //right stick is greater
+          if ( leftSpeed < rightSpeed *.4 ){
+            leftSpeed = rightSpeed * .4;
+          }
+        }
+      }
+      else if( leftStick > .05 && rightStick < 0 ||
+          leftStick < 0 && rightStick > .05 ){
+          //bot is rotating 
+          leftSpeed = leftStick * .4;
+          rightSpeed = rightStick * .4;
+      }
+      else{
+        //bot is moving backward
+        if( leftStick < rightStick ){
+          if ( rightSpeed > leftSpeed * .4 ){
+            rightSpeed = leftSpeed * .4;
+          }
+        }
+        else{
+          //right stick is less
+          if ( leftSpeed > rightSpeed *.4 ){
+            leftSpeed = rightSpeed * .4;
+          }
+        }
+      }
+      // End of Balance Code
+      
+      if( leftStick < .9 || rightStick < .9 ){
+        //reset the loop count time delay
+        driveLoopCount = 0;
+      }
+      if( driveLoopCount > 2 ){
+         rightSpeed = rightSpeed * 1.03;
+         leftSpeed = leftSpeed * 1.03;
+      }
+
+      spdc_left.set( leftSpeed );
+      spdc_right.set( -rightSpeed );
+
+      SmartDashboard.putNumber( "Left Speed", leftSpeed );
+      SmartDashboard.putNumber( "Right Speed", rightSpeed );
+    
+  }//end myRobotDrive()
+
+
+
+  public void myRobotDrive2( double leftStick, double rightStick ){
+
+      driveLoopCount++;
+      if( driveLoopCount < 2){
+        leftSpeed = speedModifier * leftStick;
+        rightSpeed = speedModifier * rightStick;
+      }
+      
+      //balance joystick values for smooth robot steering
+      if( leftStick > 0 && rightStick > 0 ){
+        //bot is moving forward
+        if( leftStick > rightStick ){
+          if ( rightSpeed < leftSpeed * .4 ){
+            rightSpeed = leftSpeed * .4;
+          }
+        }
+        else{
+          //right stick is greater
+          if ( leftSpeed < rightSpeed *.4 ){
+            leftSpeed = rightSpeed * .4;
+          }
+        }
+      }
+      else if( leftStick > .05 && rightStick < 0 ||
+          leftStick < 0 && rightStick > .05 ){
+          //bot is rotating 
+          leftSpeed = leftStick * .4;
+          rightSpeed = rightStick * .4;
+      }
+      else{
+        //bot is moving backward
+        if( leftStick < rightStick ){
+          if ( rightSpeed > leftSpeed * .4 ){
+            rightSpeed = leftSpeed * .4;
+          }
+        }
+        else{
+          //right stick is less
+          if ( leftSpeed > rightSpeed *.4 ){
+            leftSpeed = rightSpeed * .4;
+          }
+        }
+      
+      // End of Balance Code
+      
+      
+      if( leftStick < .9 || rightStick < .9 ){
+        //reset the loop count time delay
+        driveLoopCount = 0;
+      }
+      if( driveLoopCount > 2 ){
+         rightSpeed = rightSpeed * 1.03;
+         leftSpeed = leftSpeed * 1.03;
+      }
+
+      spdc_left.set( leftSpeed );
+      spdc_right.set( -rightSpeed );
+
+      SmartDashboard.putNumber( "Left Speed", leftSpeed );
+      SmartDashboard.putNumber( "Right Speed", rightSpeed );
+    }
+  }
+  
 }
