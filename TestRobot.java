@@ -305,42 +305,51 @@ public class TestRobot extends TimedRobot {
      // outer block - right sensor side
         if(rightLineSensor.get() == true){//turn robot right until it hits the midright sensor
             while(midRightLineSensor.get() != true){
-                robotDrive.tankDrive(0.6, -0.3);
+              spdc_left.set(0.6);
+              spdc_right.set(-0.3);
             }
         }
         //inner block right sensor side - gets the robot to turn until it bounces between the mid left sensor and mid sensor
         else if(midRightLineSensor.get() == true && midLineSensor.get() != true) {//turn robot right SLOWLY until it hits the mid sensor
-            robotDrive.tankDrive(0.65, -0.5);
+          spdc_left.set(0.65);
+          spdc_right.set(-0.5);
         }
         else if(midRightLineSensor.get() == true && midLineSensor.get() == true) {// continue to turn: guiding between mid left and mid sensors
-            robotDrive.tankDrive(0.6, -0.5);
+          spdc_left.set(0.6);
+          spdc_right.set(-0.5);
         }
         else if(midLineSensor.get() == true) {// if only the mid sensor is true: arc right until mid left sensor and mid sensor are hit
-            robotDrive.tankDrive(0.6, -0.4);
+          spdc_left.set(0.6);
+          spdc_right.set(-0.4);
         }
 
         // outer block - left sensor side
         else if(leftLineSensor.get() == true){// turn robot left until it hits the midleft sensor
             while(midLeftLineSensor.get() != true) {
-                robotDrive.tankDrive(-0.3, 0.6);
+              spdc_left.set(-0.3);
+              spdc_right.set(0.6);
             }
         }
         // inner block left sensor side - bounces between mid and left to get to destination
         else if(midLeftLineSensor.get() == true && midLineSensor.get() == true) {//continue to arc right until mid sensor is NOT hit
-            robotDrive.tankDrive(0.6, -0.5);
+          spdc_left.set(0.6);
+          spdc_right.set(-0.5);  
         }
         else if(midLeftLineSensor.get() == true && midLineSensor.get() != true) {//arc robot left until mid line sensor is hit
-            robotDrive.tankDrive(0.5, -0.6);
-        }
+          spdc_left.set(0.5);
+          spdc_right.set(-0.6);
+          }
 
         // error block - all three mid sensors are hit or all five sensors are hit - stops robot
         else if(midLineSensor.get() == true && midLeftLineSensor.get() == true && midRightLineSensor.get() == true || rightLineSensor.get() == true && midRightLineSensor.get() == true && midLineSensor.get() == true && midLeftLineSensor.get() == true && leftLineSensor.get() == true){
-            robotDrive.tankDrive(0, 0);
+          spdc_left.set(0);
+          spdc_right.set(0);
         }
 
         // robot reads no sensors: slow turn right
         else {
-        robotDrive.tankDrive(0.65, -0.4);
+          spdc_left.set(0.55);
+          spdc_right.set(-0.3);
         }
     }
   }
