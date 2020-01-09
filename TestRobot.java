@@ -5,11 +5,10 @@
 /* the project.                                                               */
 /*----------------------------------------------------------------------------*/
 
+
 package frc.robot;
 
-import java.lang.reflect.Array;
-import java.util.Arrays;
-import edu.wpi.first.wpilibj.CameraServer;
+import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.IterativeRobot;
@@ -18,8 +17,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.DriverStation;
 import com.revrobotics.*;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.buttons.Button;
@@ -33,7 +32,7 @@ import com.revrobotics.CANEncoder;
 import com.revrobotics.CANSparkMax.IdleMode;
 
 import edu.wpi.first.wpilibj.DigitalInput;
-import edu.wpi.first.wpilibj.Relay;
+import edu.wpi.first.wpilibj.Spark;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -42,35 +41,12 @@ import edu.wpi.first.wpilibj.Relay;
  * creating this project, you must also update the build.gradle file in the
  * project.
  */
-public class TestRobot extends TimedRobot {  
+public class Robot extends TimedRobot {  
 
-  private static final int IMG_WIDTH = 320;
-  private static final int IMG_HEIGHT = 240;  
-
-//	private VisionThread visionThread;
-  private double centerX = 0.0;
-  private double centerY = 0.0;
-  private Relay lightRing = new Relay(0);
-  private boolean lightOn = false;
-  private Timer ledTimer = new Timer();
-
-	
-	private final Object imgLock = new Object();
-  
- // CameraServer cServer = CameraServer.getInstance();
-  // vision inputs
-
-  DigitalInput leftLineSensor = new DigitalInput(3);
-  DigitalInput midLeftLineSensor = new DigitalInput(4);
-  DigitalInput midLineSensor = new DigitalInput(5);
-  DigitalInput midRightLineSensor = new DigitalInput(6);
-  DigitalInput rightLineSensor = new DigitalInput(7);
-  
-
-  DigitalInput topLimitSwitch = new DigitalInput(0);
-  DigitalInput bottomLimitSwitch = new DigitalInput(1);
+  DigitalInput topLimitSwitch = new DigitalInput(1);
+  DigitalInput bottomLimitSwitch = new DigitalInput(0);
   public double upperEncoderLimit = 156;
-  public double middleRocketPOS = 80.6;
+  public double middleRocketPOS = 68.6;
   public double elevatorEncoderPos = 0;
   public double safetyLimitFactor = 50;
   
@@ -79,29 +55,31 @@ public class TestRobot extends TimedRobot {
   private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
-
-  public double speedModifier = 0.6;
-  public double rampRate = 0.35;
+  private Timer autoDriveTimer = new Timer();
+  public double speedModifier = 0.75;
+  public double rampRate = 0.50;
   public double driveLoopCount = 0;
-  public boolean autoDriveForward = true;
+  public boolean autoDriveForward = false;
   public double loopCounter = 0;
-  public double elevatorSpeed = .5;
+  public double elevatorSpeed = 1;
   private CANEncoder elevatorEncoder;
+  private CANEncoder driveEncoder;
   double elevatorHome = 0;
 
   //right side controllers
-  private int canDeviceID1 = 13;
-  private int canDeviceID3 = 14;
-  private int canDeviceID2 = 15;
+  private int canDeviceID1 = 16;
+  private int canDeviceID3 = 17;
+  private int canDeviceID2 = 18;
 
   //left side controllers
-  private int canDeviceID4 = 10;
-  private int canDeviceID5 = 11;
-  private int canDeviceID6 = 12;
+  private int canDeviceID4 = 19;
+  private int canDeviceID5 = 20;
+  private int canDeviceID6 = 21;
 
   // elevator ID
-  private int canDeviceID7 = 16;
+  private int canDeviceID7 = 12;
 
+  //Drive motors
   private CANSparkMax motor1 = new CANSparkMax( canDeviceID1, MotorType.kBrushless);
   private CANSparkMax motor2 = new CANSparkMax( canDeviceID2, MotorType.kBrushless);
   private CANSparkMax motor3 = new CANSparkMax( canDeviceID3, MotorType.kBrushless);
@@ -112,14 +90,13 @@ public class TestRobot extends TimedRobot {
   private CANSparkMax motor6 = new CANSparkMax( canDeviceID6, MotorType.kBrushless);
   private SpeedControllerGroup spdc_left = new SpeedControllerGroup(motor4, motor5, motor6);
 
-  private final DifferentialDrive
-  robotDrive = new DifferentialDrive(spdc_left, spdc_right);
-
   //elevator motor
   private CANSparkMax elevator = new CANSparkMax(canDeviceID7, MotorType.kBrushless);
 
   //claw Lift/lower (clift)
   private Spark clift = new Spark(0);
+   boolean clawUp = false;
+  private Timer clawTimer = new Timer();
 
   //Pneumatics
   Compressor c = new Compressor(0);
@@ -138,8 +115,8 @@ public class TestRobot extends TimedRobot {
   Double axisRy = 0.0;
 
 
-
- // CameraServer cServer2 = CameraServer.getInstance();
+  CameraServer cServer = CameraServer.getInstance();
+  CameraServer cServer2 = CameraServer.getInstance();
   //CameraServer cServer3 = CameraServer.getInstance();
   //CameraServer cServer4 = CameraServer.getInstance();
 
@@ -154,7 +131,6 @@ public class TestRobot extends TimedRobot {
   public double getRightstick() {
     return stick1.getRawAxis(5);
   }
-
   
   /**
    * This function is run when the robot is first started up and should be
@@ -162,18 +138,17 @@ public class TestRobot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    
-   // cServer.startAutomaticCapture(0);
-     
-    
-
-   //  cServer2.startAutomaticCapture(0);
+    //m_oi = new OI();
+   
+    cServer.startAutomaticCapture(0);
+     cServer2.startAutomaticCapture(1);
     // cServer3.startAutomaticCapture(2);
     // cServer4.startAutomaticCapture(3);
     c.setClosedLoopControl(true);
     
     // elevatorEncoder.setPosition(10);
     elevatorEncoder = elevator.getEncoder();
+    driveEncoder = motor2.getEncoder();
 
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
@@ -227,7 +202,7 @@ public class TestRobot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-      autoDriveForward = true;
+    autoDriveTimer.start();
   }
 
   /**
@@ -237,19 +212,45 @@ public class TestRobot extends TimedRobot {
   public void autonomousPeriodic() {
 
     loopCounter++;
+    myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
+  
+  // auto forward at the beginning of the match 
+    if(stick1.getRawButton(8)){
+      autoDriveTimer.reset();
+      autoDriveForward = true;
+   }
+    
+    //if( autoDriveForward ) {
+      
+    //}
 
-    // auto forward at the beginning of the match
-    if( autoDriveForward) {
+    while ( autoDriveForward == true && autoDriveTimer.get() < 0.8) {
+      //autoDriveForward = true;
       spdc_right.set(-0.8);
       spdc_left.set(0.8);
     }
-    if ( getLeftstick() > 0.5 || getLeftstick() < -0.5 || loopCounter > 65 ) {
-      autoDriveForward = false;
+    while ( autoDriveForward == true && autoDriveTimer.get() < 1.5) {
+      //autoDriveForward= true;
+      spdc_right.set(-0.422);
+      spdc_left.set(0.422);
     }
+
+    autoDriveForward = false;
+
     if (!autoDriveForward) {
       myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
     }
 
+    if(stick1.getRawButton(8)) {
+
+      if(driveEncoder.getPosition() <= 80 ) { 
+        spdc_right.set(-0.8);
+        spdc_left.set(0.8);
+      }
+      
+
+    }
+  
     clawControl();  
      
     //elevatorControl();
@@ -264,25 +265,11 @@ public class TestRobot extends TimedRobot {
    */
   @Override
   public void teleopPeriodic() {
-    SmartDashboard.putBoolean("line sensor", leftLineSensor.get());
    
     loopCounter++;
 
     
-    if( stick2.getRawButton( 8 ) && ledTimer.get() > .2 ){
-      ledTimer.reset();
-      if ( lightOn ){
-        //light is on - turn off
-        lightOn = false;
-        lightRing.set( Relay.Value.kOff );
-      }
-      else{
-        //light is off - turn on
-        lightOn = true;
-        lightRing.set( Relay.Value.kForward );
-      }
-    }
-  
+    
     
     myRobotDrive( -stick1.getRawAxis(1), -stick1.getRawAxis(5) );
   
@@ -291,68 +278,10 @@ public class TestRobot extends TimedRobot {
     elevatorControl();
 
     precisionDrive();
-
-    lineDrive();
-
+      
   }//end teleopPeriodic()
 
-  public void lineDrive(){
 
-    // NOTE TO SELF: Check to see if sensors are tripped by dropped hatch panels!
-
-    while(stick1.getRawButton(8)) {
-
-     // outer block - right sensor side
-        if(rightLineSensor.get() == true){//turn robot right until it hits the midright sensor
-            while(midRightLineSensor.get() != true){
-              spdc_left.set(0.6);
-              spdc_right.set(-0.3);
-            }
-        }
-        //inner block right sensor side - gets the robot to turn until it bounces between the mid left sensor and mid sensor
-        else if(midRightLineSensor.get() == true && midLineSensor.get() != true) {//turn robot right SLOWLY until it hits the mid sensor
-          spdc_left.set(0.65);
-          spdc_right.set(-0.5);
-        }
-        else if(midRightLineSensor.get() == true && midLineSensor.get() == true) {// continue to turn: guiding between mid left and mid sensors
-          spdc_left.set(0.6);
-          spdc_right.set(-0.5);
-        }
-        else if(midLineSensor.get() == true) {// if only the mid sensor is true: arc right until mid left sensor and mid sensor are hit
-          spdc_left.set(0.6);
-          spdc_right.set(-0.4);
-        }
-
-        // outer block - left sensor side
-        else if(leftLineSensor.get() == true){// turn robot left until it hits the midleft sensor
-            while(midLeftLineSensor.get() != true) {
-              spdc_left.set(-0.3);
-              spdc_right.set(0.6);
-            }
-        }
-        // inner block left sensor side - bounces between mid and left to get to destination
-        else if(midLeftLineSensor.get() == true && midLineSensor.get() == true) {//continue to arc right until mid sensor is NOT hit
-          spdc_left.set(0.6);
-          spdc_right.set(-0.5);  
-        }
-        else if(midLeftLineSensor.get() == true && midLineSensor.get() != true) {//arc robot left until mid line sensor is hit
-          spdc_left.set(0.5);
-          spdc_right.set(-0.6);
-          }
-
-        // error block - all three mid sensors are hit or all five sensors are hit - stops robot
-        else if(midLineSensor.get() == true && midLeftLineSensor.get() == true && midRightLineSensor.get() == true || rightLineSensor.get() == true && midRightLineSensor.get() == true && midLineSensor.get() == true && midLeftLineSensor.get() == true && leftLineSensor.get() == true){
-          spdc_left.set(0);
-          spdc_right.set(0);
-        }
-
-        // robot reads no sensors: slow turn right
-        else {
-          spdc_left.set(0.55);
-          spdc_right.set(-0.3);
-        }
-    }
-  }
 
   /**
    * This function is called periodically during test mode.
@@ -365,27 +294,48 @@ public class TestRobot extends TimedRobot {
 
     //Claw Lift/Lower
     if ( stick2.getRawButton(5) ) {
-      //left bumper
-      clift.set(0.5);
+      //left bumper - lifts claw
+      clawTimer.start();
+      while( clawTimer.get() < .5 ){
+        //close
+        clawA.set(true);
+        clawB.set(false);
+      }
+      clawTimer.reset();
+      while( clawTimer.get() < .7 ){
+        clift.set(0.7);
+      }
+      clawUp = true;
+      //Open Claw
+      clawA.set(false);
+      clawB.set(true);
     }
     else if ( stick2.getRawButton(6) ) {
-      // right bumper
+      // right bumper - lowers claw
       clift.set(-0.5);
+      clawA.set(true);
+      clawB.set(false);
+      clawUp = false;
     }
     else {
       clift.set(0.0);
+      clawTimer.reset();
+    }
+
+    if(clawUp && !stick2.getRawButton(5) ) {
+      clift.set(0.12);
     }
 
     //Claw Open/Close
-    if( stick2.getRawButton(1) ){
+    if( stick2.getRawButton(2) ){
       //Open - Button A, Green
-      clawA.set(true);
-      clawB.set(false);
-   }
-    if(  stick2.getRawButton(2) ) {
-      //Close - Button B, Red
       clawA.set(false);
       clawB.set(true);
+   }
+    if(  stick2.getRawButton(1) ) {
+      //Close - Button B, Red
+      clawA.set(true);
+      clawB.set(false);
     }
 
   }//end clawControl()
@@ -403,7 +353,7 @@ public class TestRobot extends TimedRobot {
 
     elevatorEncoderPos = Math.abs(elevatorEncoder.getPosition());
     SmartDashboard.putNumber("elevator encoder position", elevatorEncoderPos);
-
+    // Drive Train speed limiter
     if( elevatorEncoderPos > 60 ){
       rampRate = 2;
       motor1.setOpenLoopRampRate(rampRate);
@@ -414,47 +364,56 @@ public class TestRobot extends TimedRobot {
       motor6.setOpenLoopRampRate(rampRate);
     }
     else{
-      rampRate = .35;
-    }
+      rampRate = 0.5;
+      motor1.setOpenLoopRampRate(rampRate);
+      motor2.setOpenLoopRampRate(rampRate);
+      motor3.setOpenLoopRampRate(rampRate);
+      motor4.setOpenLoopRampRate(rampRate);
+      motor5.setOpenLoopRampRate(rampRate);
+      motor6.setOpenLoopRampRate(rampRate);
+    } 
 
 
-    if( stick2.getRawButton(3) && bottomLimitSwitch.get()) {
+    if( stick2.getRawButton(3) && bottomLimitSwitch.get() && elevatorEncoderPos > 0) {
       //down
-      elevator.set(elevatorSpeed );
+      elevator.set(.80 );
 
       // limit approach safety
-      if(elevatorEncoderPos < elevatorHome + safetyLimitFactor) {
-        elevator.set(.15);
+      if(elevatorEncoderPos < elevatorHome + 25) {
+        elevator.set(.2);
       }
       else{
-        elevator.set(.5);
-      }
-    }else if( stick2.getRawButton(4) && topLimitSwitch.get()) {
-      // up
-      elevator.set(-0.15);
-
-      // limit approach safety
-      if(elevatorEncoderPos < elevatorHome + upperEncoderLimit - safetyLimitFactor){
-        elevator.set(-.5);
-      }
-      else{
-        elevatorSpeed = -.5;
+        elevator.set(.80);
       }
     }
-    else if(stick1.getRawButton(1)){
-      
-      if( elevatorEncoderPos < middleRocketPOS - 5) {
-        elevator.set(-0.5);
+    else if( stick2.getRawButton(4) && topLimitSwitch.get() && elevatorEncoderPos < 133 && !clawUp) {
+      // up
+      elevator.set(-1);
+
+      // limit approach safety
+      if(elevatorEncoderPos > elevatorHome + upperEncoderLimit - safetyLimitFactor){
+        elevator.set(-.25);
       }
-      if(elevatorEncoderPos > middleRocketPOS + 5) {
-        elevator.set(0.5);
+      else{
+        elevatorSpeed = -1;
+      }
+    }
+    else if(stick2.getRawButton(8)){
+      
+      if( elevatorEncoderPos < middleRocketPOS - 8) {
+        elevator.set(-0.6);
+      }
+      else if(elevatorEncoderPos > middleRocketPOS + 8
+      ) {
+        elevator.set(0.6);
       }
       else {
         elevator.set(-0.02);
           
       }
-    } 
+    }  
     else {
+      //hold robot in place
       elevator.set(-0.02);
     }
 
@@ -467,30 +426,53 @@ public class TestRobot extends TimedRobot {
 
 
 
+//robot D-pad driving
   public void precisionDrive(){
 
     //D-pad POV values measured in degrees
     SmartDashboard.putNumber( "POV", stick1.getPOV() );
     while( stick1.getPOV() == 0 ){
-      spdc_left.set( .22 );
-      spdc_right.set( -.22 );
+      if((elevatorEncoder.getPosition())>80) {
+        spdc_left.set(.12);
+        spdc_right.set(-.12);
+      }else{
+      spdc_left.set( .16 );
+      spdc_right.set( -.16 );
+      }
     }
     while( stick1.getPOV() == 180 ){
-      spdc_left.set( -.22 );
-      spdc_right.set( .22 );
+      if((elevatorEncoder.getPosition())>80) {
+        spdc_left.set(-.12);
+        spdc_right.set(.12);
+      }
+      else{
+      spdc_left.set( -.16 );
+      spdc_right.set( .16 );}
     }
     while( stick1.getPOV() == 90 ){
-      spdc_left.set( .22 );
-      spdc_right.set(.22 );
+      if((elevatorEncoder.getPosition())>80) {
+        spdc_left.set(.12);
+        spdc_right.set(.12);
+      }
+      else{
+      spdc_left.set( .16 );
+      spdc_right.set(.16 );}
     }
     while( stick1.getPOV() == 270 ){
-      spdc_left.set( -.22 );
-      spdc_right.set( -.22 );
+      if((elevatorEncoder.getPosition())>80) {
+        spdc_left.set(-.12);
+        spdc_right.set(-.12);
+      }
+      else{
+      spdc_left.set( -.16 );
+      spdc_right.set( -.16 );
+      }
     }
 
   }//end precisionDrive()
 
-
+  
+//begin drive code
   public void myRobotDrive( double leftStick, double rightStick ){
 
     SmartDashboard.putNumber("Left Stick", leftStick );
@@ -526,6 +508,9 @@ public class TestRobot extends TimedRobot {
       }
       else{
         //bot is moving backward
+        
+
+        /*   //old section
         if( leftStick < rightStick ){
           if ( rightSpeed > leftSpeed * .4 ){
             rightSpeed = leftSpeed * .4;
@@ -537,6 +522,7 @@ public class TestRobot extends TimedRobot {
             leftSpeed = rightSpeed * .4;
           }
         }
+        */  //old section
       }
       // End of Balance Code
       
@@ -549,8 +535,18 @@ public class TestRobot extends TimedRobot {
          leftSpeed = leftSpeed * 1.03;
       }
 
-      spdc_left.set( leftSpeed );
-      spdc_right.set( -rightSpeed );
+      if(elevatorEncoderPos < 40){
+        spdc_left.set( leftSpeed );
+        spdc_right.set( -rightSpeed );
+      } 
+      else if(elevatorSpeed < 80) {
+        spdc_left.set( leftSpeed / 3 );
+        spdc_right.set( -rightSpeed / 3 );
+      }
+      else {
+        spdc_left.set( leftSpeed / 8 );
+        spdc_right.set( -rightSpeed / 8 );
+      }
 
       SmartDashboard.putNumber( "Left Speed", leftSpeed );
       SmartDashboard.putNumber( "Right Speed", rightSpeed );
@@ -621,5 +617,10 @@ public class TestRobot extends TimedRobot {
       SmartDashboard.putNumber( "Right Speed", rightSpeed );
     }
   }
-  
+
+  //possible manual drive centre
+  /*if(stick1.getRawButton(12)){
+    double stick1.getRawAxis(1)=0;
+    double stick1.getRawAxis(5)=0;
+  }*/
 }
